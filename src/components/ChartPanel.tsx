@@ -38,7 +38,7 @@ async function fetchCandles(yahooSym: string): Promise<Candle[]> {
         low: lows[i],
         close: closes[i],
       }))
-      .filter((c) => c.open && c.high && c.low && c.close)
+      .filter((c) => c.open != null && c.high != null && c.low != null && c.close != null && isFinite(c.close))
       .sort((a, b) => a.time.localeCompare(b.time));
   } catch {
     return [];
@@ -54,6 +54,8 @@ export default function ChartPanel({ ticker, name }: Props) {
     if (!containerRef.current) return;
     const sym = toChartSymbol(ticker);
     if (!sym) return;
+
+    let cancelled = false;
 
     const chart = createChart(containerRef.current, {
       width: containerRef.current.clientWidth,
@@ -74,6 +76,7 @@ export default function ChartPanel({ ticker, name }: Props) {
     });
 
     fetchCandles(sym).then((candles) => {
+      if (cancelled) return;
       if (candles.length === 0) { setError(true); setLoading(false); return; }
       series.setData(candles);
       chart.timeScale().fitContent();
@@ -81,11 +84,18 @@ export default function ChartPanel({ ticker, name }: Props) {
     });
 
     const ro = new ResizeObserver(() => {
-      if (containerRef.current) chart.applyOptions({ width: containerRef.current.clientWidth });
+      if (containerRef.current) {
+        const w = containerRef.current.clientWidth;
+        if (w > 0) chart.applyOptions({ width: w });
+      }
     });
     ro.observe(containerRef.current);
 
-    return () => { chart.remove(); ro.disconnect(); };
+    return () => {
+      cancelled = true;
+      chart.remove();
+      ro.disconnect();
+    };
   }, [ticker]);
 
   return (

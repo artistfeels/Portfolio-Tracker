@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { usePortfolio } from '../hooks/usePortfolio';
 import ChartPanel from '../components/ChartPanel';
 
@@ -95,9 +95,8 @@ export default function Dashboard() {
               const profitColor = h.profit_krw >= 0 ? '#cf222e' : '#1f6feb';
               const weight = summary.totalValue > 0 ? (h.market_value_krw / summary.totalValue) * 100 : 0;
               return (
-                <>
+                <React.Fragment key={h.ticker}>
                   <tr
-                    key={h.ticker}
                     onClick={() => !isCash && setSelectedTicker(selectedTicker === h.ticker ? null : h.ticker)}
                     style={{
                       borderTop: '1px solid #21262d',
@@ -135,7 +134,7 @@ export default function Dashboard() {
                       </td>
                     </tr>
                   )}
-                </>
+                </React.Fragment>
               );
             })}
           </tbody>
