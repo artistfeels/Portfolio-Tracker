@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { usePortfolio } from '../hooks/usePortfolio';
+import ChartPanel from '../components/ChartPanel';
 
 const fmt = (n: number) =>
   n.toLocaleString('ko-KR', { maximumFractionDigits: 0 }) + '원';
@@ -10,6 +12,7 @@ const fmtPct = (n: number) => {
 
 export default function Dashboard() {
   const { holdings, summary, usdKrw, status, progress, error, reload } = usePortfolio();
+  const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
 
   if (status === 'error') {
     return (
@@ -92,30 +95,47 @@ export default function Dashboard() {
               const profitColor = h.profit_krw >= 0 ? '#cf222e' : '#1f6feb';
               const weight = summary.totalValue > 0 ? (h.market_value_krw / summary.totalValue) * 100 : 0;
               return (
-                <tr key={h.ticker} style={{ borderTop: '1px solid #21262d', background: i % 2 === 0 ? 'transparent' : '#0d1117' }}>
-                  <td style={{ padding: '10px 14px' }}>
-                    <div style={{ fontWeight: 600, fontSize: 14 }}>{h.name}</div>
-                    <div style={{ fontSize: 11, color: '#8b949e', marginTop: 2 }}>{h.ticker}</div>
-                  </td>
-                  <td style={{ padding: '10px 14px', textAlign: 'right', color: isCash ? '#8b949e' : undefined }}>
-                    {isCash ? '-' : h.shares.toLocaleString()}
-                  </td>
-                  <td style={{ padding: '10px 14px', textAlign: 'right', color: isCash ? '#8b949e' : undefined }}>
-                    {isCash ? '-' : h.avg_price_krw.toLocaleString()}
-                  </td>
-                  <td style={{ padding: '10px 14px', textAlign: 'right', color: isCash ? '#8b949e' : undefined }}>
-                    {isCash ? '-' : h.current_price_krw.toLocaleString()}
-                  </td>
-                  <td style={{ padding: '10px 14px', textAlign: 'right' }}>{fmt(h.market_value_krw)}</td>
-                  <td style={{ padding: '10px 14px', textAlign: 'right', color: isCash ? '#8b949e' : profitColor }}>
-                    {isCash ? '-' : fmt(h.profit_krw)}
-                  </td>
-                  <td style={{ padding: '10px 14px', textAlign: 'right', color: isCash ? '#8b949e' : profitColor }}>
-                    {isCash ? '-' : fmtPct(h.profit_pct)}
-                  </td>
-                  <td style={{ padding: '10px 14px', textAlign: 'right' }}>{weight.toFixed(1)}%</td>
-                  <td style={{ padding: '10px 14px', textAlign: 'right', color: '#8b949e', fontSize: 11 }}>{h.price_source}</td>
-                </tr>
+                <>
+                  <tr
+                    key={h.ticker}
+                    onClick={() => !isCash && setSelectedTicker(selectedTicker === h.ticker ? null : h.ticker)}
+                    style={{
+                      borderTop: '1px solid #21262d',
+                      background: selectedTicker === h.ticker ? '#1c2128' : (i % 2 === 0 ? 'transparent' : '#0d1117'),
+                      cursor: isCash ? 'default' : 'pointer',
+                    }}
+                  >
+                    <td style={{ padding: '10px 14px' }}>
+                      <div style={{ fontWeight: 600, fontSize: 14 }}>{h.name}</div>
+                      <div style={{ fontSize: 11, color: '#8b949e', marginTop: 2 }}>{h.ticker}</div>
+                    </td>
+                    <td style={{ padding: '10px 14px', textAlign: 'right', color: isCash ? '#8b949e' : undefined }}>
+                      {isCash ? '-' : h.shares.toLocaleString()}
+                    </td>
+                    <td style={{ padding: '10px 14px', textAlign: 'right', color: isCash ? '#8b949e' : undefined }}>
+                      {isCash ? '-' : h.avg_price_krw.toLocaleString()}
+                    </td>
+                    <td style={{ padding: '10px 14px', textAlign: 'right', color: isCash ? '#8b949e' : undefined }}>
+                      {isCash ? '-' : h.current_price_krw.toLocaleString()}
+                    </td>
+                    <td style={{ padding: '10px 14px', textAlign: 'right' }}>{fmt(h.market_value_krw)}</td>
+                    <td style={{ padding: '10px 14px', textAlign: 'right', color: isCash ? '#8b949e' : profitColor }}>
+                      {isCash ? '-' : fmt(h.profit_krw)}
+                    </td>
+                    <td style={{ padding: '10px 14px', textAlign: 'right', color: isCash ? '#8b949e' : profitColor }}>
+                      {isCash ? '-' : fmtPct(h.profit_pct)}
+                    </td>
+                    <td style={{ padding: '10px 14px', textAlign: 'right' }}>{weight.toFixed(1)}%</td>
+                    <td style={{ padding: '10px 14px', textAlign: 'right', color: '#8b949e', fontSize: 11 }}>{h.price_source}</td>
+                  </tr>
+                  {selectedTicker === h.ticker && !isCash && (
+                    <tr key={`${h.ticker}-chart`}>
+                      <td colSpan={9} style={{ padding: 0 }}>
+                        <ChartPanel ticker={h.ticker} name={h.name} />
+                      </td>
+                    </tr>
+                  )}
+                </>
               );
             })}
           </tbody>
