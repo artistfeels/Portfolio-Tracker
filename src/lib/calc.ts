@@ -1,4 +1,4 @@
-import type { Transaction, Holding } from './types';
+import type { Transaction, Holding, HoldingWithPrice, IrrResult } from './types';
 
 // 거래내역에서 현재 보유종목 자동 산출 (매수합 - 매도합)
 export function calcHoldings(transactions: Transaction[]): Holding[] {
@@ -60,4 +60,87 @@ export function calcSummary(holdings: { market_value_krw: number; total_principa
   const totalProfit = totalValue - totalPrincipal;
   const profitPct = totalPrincipal > 0 ? (totalProfit / totalPrincipal) * 100 : 0;
   return { totalValue, totalPrincipal, totalProfit, profitPct };
+}
+
+interface Cashflow {
+  date: Date;
+  amount: number;
+}
+
+export function calcIrr(cashflows: Cashflow[]): number | null {
+  if (cashflows.length < 2) return null;
+  const sorted = [...cashflows].sort((a, b) => a.date.getTime() - b.date.getTime());
+  const t0 = sorted[0].date.getTime();
+  const MS_PER_YEAR = 365.25 * 24 * 3600 * 1000;
+
+  function npv(r: number): number {
+    return sorted.reduce((s, cf) => {
+      const years = (cf.date.getTime() - t0) / MS_PER_YEAR;
+      return s + cf.amount / Math.pow(1 + r, years);
+    }, 0);
+  }
+
+  let lo = -0.999, hi = 100;
+  if (npv(lo) * npv(hi) > 0) return null;
+  for (let i = 0; i < 300; i++) {
+    const mid = (lo + hi) / 2;
+    if (npv(mid) > 0) lo = mid; else hi = mid;
+    if (hi - lo < 1e-7) break;
+  }
+  return (lo + hi) / 2;
+}
+
+export function calcPortfolioIrr(
+  transactions: Transaction[],
+  holdings: HoldingWithPrice[]
+): number | null {
+  const cashflows: Cashflow[] = [];
+  const today = new Date();
+
+  for (const tx of transactions) {
+    const date = new Date(tx.trade_date);
+    if (tx.action === 'buy') {
+      cashflows.push({ date, amount: -(tx.shares * tx.price_krw) });
+    } else if (tx.action === 'sell' || tx.action === 'dividend') {
+      cashflows.push({ date, amount: tx.shares * tx.price_krw });
+    }
+  }
+  for (const h of holdings) {
+    if (h.ticker === 'CASH') continue;
+    if (h.market_value_krw > 0) {
+      cashflows.push({ date: today, amount: h.market_value_krw });
+    }
+  }
+  return calcIrr(cashflows);
+}
+
+export function calcHoldingIrrs(
+  transactions: Transaction[],
+  holdings: HoldingWithPrice[]
+): IrrResult[] {
+  return holdings
+    .filter((h) => h.ticker !== 'CASH')
+    .map((h) => {
+      const txs = transactions.filter((t) => t.ticker === h.ticker);
+      const cfs: Cashflow[] = txs.map((t) => ({
+        date: new Date(t.trade_date),
+        amount:
+          t.action === 'buy' ? -(t.shares * t.price_krw) :
+          t.action === 'sell' || t.action === 'dividend' ? t.shares * t.price_krw : 0,
+      })).filter((cf) => cf.amount !== 0);
+
+      if (h.market_value_krw > 0) {
+        cfs.push({ date: new Date(), amount: h.market_value_krw });
+      }
+
+      const firstTx = [...txs].sort((a, b) => a.trade_date.localeCompare(b.trade_date))[0];
+      return {
+        ticker: h.ticker,
+        name: h.name,
+        irr: calcIrr(cfs),
+        invested_krw: h.total_principal_krw,
+        current_value_krw: h.market_value_krw,
+        first_date: firstTx?.trade_date ?? '',
+      };
+    });
 }
