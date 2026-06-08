@@ -59,6 +59,7 @@ export function usePortfolio() {
         const profitPct = h.total_principal_krw > 0 ? (profit / h.total_principal_krw) * 100 : 0;
         return {
           ...h,
+          name: p?.display_name ?? h.name,   // Yahoo longName 우선
           current_price_krw: current,
           market_value_krw: marketVal,
           profit_krw: profit,
