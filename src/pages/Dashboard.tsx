@@ -94,8 +94,8 @@ export default function Dashboard() {
               return (
                 <tr key={h.ticker} style={{ borderTop: '1px solid #21262d', background: i % 2 === 0 ? 'transparent' : '#0d1117' }}>
                   <td style={{ padding: '10px 14px' }}>
-                    <div style={{ fontWeight: 600 }}>{h.ticker}</div>
-                    <div style={{ fontSize: 11, color: '#8b949e' }}>{h.name}</div>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>{h.name}</div>
+                    <div style={{ fontSize: 11, color: '#8b949e', marginTop: 2 }}>{h.ticker}</div>
                   </td>
                   <td style={{ padding: '10px 14px', textAlign: 'right', color: isCash ? '#8b949e' : undefined }}>
                     {isCash ? '-' : h.shares.toLocaleString()}
