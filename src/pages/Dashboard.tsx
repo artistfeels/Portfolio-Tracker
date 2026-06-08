@@ -44,7 +44,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div style={{ padding: '24px 32px', fontFamily: 'sans-serif', background: '#0d1117', minHeight: '100vh', color: '#e6edf3' }}>
+    <div style={{ padding: '24px 32px' }}>
       {/* 헤더 */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Portfolio Tracker</h1>
