@@ -1,0 +1,69 @@
+<h2>거래내역 페이지 — 어떻게 구성할까요?</h2>
+<p class="subtitle">CSV 템플릿 다운로드·업로드와 기존 거래내역 표시를 어떻게 배치할지 선택하세요.</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>거래내역 테이블 + 상단 CSV 툴바</h3>
+      <div class="mockup" style="margin-top:10px">
+        <div class="mockup-body" style="padding:10px;height:200px;font-size:9px;overflow:hidden">
+          <!-- 툴바 -->
+          <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;background:#21262d;padding:6px 8px;border-radius:6px">
+            <span style="color:#8b949e;flex:1">총 161건</span>
+            <button style="background:#238636;border:none;color:#fff;padding:4px 10px;border-radius:4px;font-size:9px;cursor:pointer">⬇ CSV 템플릿 다운로드</button>
+            <button style="background:#1f6feb;border:none;color:#fff;padding:4px 10px;border-radius:4px;font-size:9px;cursor:pointer">⬆ CSV 업로드</button>
+          </div>
+          <!-- 거래내역 테이블 -->
+          <div style="background:#161b22;border-radius:4px;overflow:hidden">
+            <div style="display:grid;grid-template-columns:80px 1fr 60px 70px 60px;background:#21262d;padding:5px 8px;color:#8b949e;gap:6px">
+              <span>날짜</span><span>종목</span><span>구분</span><span>수량</span><span>단가</span>
+            </div>
+            <div style="display:grid;grid-template-columns:80px 1fr 60px 70px 60px;padding:5px 8px;color:#e6edf3;gap:6px;border-top:1px solid #21262d">
+              <span>2024-03-15</span><span>SK하이닉스</span><span style="color:#cf222e">매수</span><span>10</span><span>165,000</span>
+            </div>
+            <div style="display:grid;grid-template-columns:80px 1fr 60px 70px 60px;padding:5px 8px;color:#e6edf3;gap:6px;border-top:1px solid #21262d;background:#0d1117">
+              <span>2024-01-08</span><span>NVIDIA</span><span style="color:#cf222e">매수</span><span>5</span><span>623,000</span>
+            </div>
+            <div style="display:grid;grid-template-columns:80px 1fr 60px 70px 60px;padding:5px 8px;color:#e6edf3;gap:6px;border-top:1px solid #21262d">
+              <span>2023-11-20</span><span>삼성전자</span><span style="color:#1f6feb">매도</span><span>20</span><span>71,200</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>장점</h4><ul><li>기존 거래내역 검색·확인</li><li>CSV 버튼 항상 노출</li></ul></div>
+        <div class="cons"><h4>단점</h4><ul><li>구현량 많음</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>CSV 가져오기 전용 페이지 (심플)</h3>
+      <div class="mockup" style="margin-top:10px">
+        <div class="mockup-body" style="padding:16px;height:200px;font-size:9px;display:flex;flex-direction:column;gap:10px">
+          <div style="text-align:center;color:#8b949e">거래내역 CSV 관리</div>
+          <!-- 1단계 -->
+          <div style="background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px">
+            <div style="color:#e6edf3;font-weight:600;margin-bottom:4px">1️⃣ 템플릿 다운로드</div>
+            <div style="color:#8b949e;margin-bottom:6px">거래내역 입력 양식을 다운받아 작성하세요</div>
+            <button style="background:#238636;border:none;color:#fff;padding:4px 12px;border-radius:4px;font-size:9px">⬇ transactions_template.csv</button>
+          </div>
+          <!-- 2단계 -->
+          <div style="background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px">
+            <div style="color:#e6edf3;font-weight:600;margin-bottom:4px">2️⃣ 작성 후 업로드</div>
+            <div style="background:#0d1117;border:1px dashed #30363d;border-radius:4px;padding:10px;text-align:center;color:#8b949e">
+              📂 파일을 드래그하거나 클릭하여 업로드
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>장점</h4><ul><li>직관적인 단계별 안내</li><li>빠르게 구현</li></ul></div>
+        <div class="cons"><h4>단점</h4><ul><li>기존 거래내역 못 봄</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>

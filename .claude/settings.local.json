@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(run)",
+      "PowerShell(Start-Process \"http://localhost:5173\")",
+      "PowerShell(Get-ChildItem \"C:\\\\dev\\\\Portfolio-Tracker\\\\node_modules\" -Directory | Where-Object { $_.Name -match 'playwright' } | Select-Object Name)",
+      "PowerShell(\\(Get-Command npx\\).Source; npx --yes playwright screenshot \"http://localhost:5173\" \"C:\\\\Users\\\\박필상\\\\AppData\\\\Local\\\\Temp\\\\portfolio-final.png\" --wait-for-timeout 25000 2>&1 | Select-Object -Last 10)",
+      "PowerShell(npx playwright install chromium 2>&1 | Select-Object -Last 5)",
+      "PowerShell(npx playwright screenshot \"http://localhost:5173\" \"C:\\\\Users\\\\박필상\\\\AppData\\\\Local\\\\Temp\\\\portfolio-final.png\" --wait-for-timeout 30000 2>&1)",
+      "PowerShell(npx playwright screenshot \"http://localhost:5173\" \"C:\\\\Users\\\\박필상\\\\AppData\\\\Local\\\\Temp\\\\portfolio-full.png\" --wait-for-timeout 30000 --full-page 2>&1)",
+      "Skill(update-config)",
+      "Bash(npm run *)",
+      "Bash(curl -s http://localhost:5173/)",
+      "Bash(curl -s \"https://query1.finance.yahoo.com/v8/finance/chart/XAUUSD%3DX?interval=1d&range=1d\" -H \"User-Agent: Mozilla/5.0\")",
+      "Bash(curl -s \"https://query1.finance.yahoo.com/v8/finance/chart/GC%3DF?interval=1d&range=1d\" -H \"User-Agent: Mozilla/5.0\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); r=d['chart']['result'][0]; print\\(r['meta']['regularMarketPrice'], r['meta']['currency']\\)\")",
+      "Bash(bash *)",
+      "Bash(git config *)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
+    ]
+  }
+}

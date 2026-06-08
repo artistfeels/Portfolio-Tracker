@@ -1,0 +1,112 @@
+<h2>종목 클릭 시 차트 표시 방식</h2>
+<p class="subtitle">대시보드 화면에서 종목명을 클릭했을 때 TradingView 차트가 나타나는 방식을 선택하세요.</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>중앙 모달 (팝업)</h3>
+      <div class="mockup" style="margin-top:10px">
+        <div class="mockup-body" style="padding:0;height:200px;position:relative;overflow:hidden">
+          <!-- 배경 흐림 -->
+          <div style="position:absolute;inset:0;background:#0d1117;opacity:0.6;z-index:1"></div>
+          <div style="position:absolute;inset:0;padding:8px;font-size:9px;color:#444;z-index:0">
+            <div style="background:#21262d;height:8px;border-radius:2px;margin-bottom:5px"></div>
+            <div style="background:#21262d;height:8px;border-radius:2px;margin-bottom:5px;width:80%"></div>
+            <div style="background:#21262d;height:8px;border-radius:2px;width:60%"></div>
+          </div>
+          <!-- 모달 -->
+          <div style="position:absolute;top:15px;left:15px;right:15px;bottom:15px;background:#161b22;border:1px solid #30363d;border-radius:8px;z-index:2;padding:10px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <div>
+                <div style="font-weight:700;font-size:12px;color:#e6edf3">SK하이닉스</div>
+                <div style="font-size:10px;color:#8b949e">000660.KS</div>
+              </div>
+              <div style="color:#8b949e;font-size:14px;cursor:pointer">✕</div>
+            </div>
+            <div style="background:#0d1117;border-radius:4px;height:110px;display:flex;align-items:center;justify-content:center;color:#8b949e;font-size:10px">
+              📈 TradingView 일봉 차트
+            </div>
+            <div style="display:flex;gap:6px;margin-top:8px">
+              <div style="background:#21262d;border-radius:3px;padding:3px 8px;font-size:9px;color:#58a6ff">1일</div>
+              <div style="background:#21262d;border-radius:3px;padding:3px 8px;font-size:9px;color:#8b949e">1주</div>
+              <div style="background:#21262d;border-radius:3px;padding:3px 8px;font-size:9px;color:#8b949e">1개월</div>
+              <div style="background:#21262d;border-radius:3px;padding:3px 8px;font-size:9px;color:#8b949e">1년</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>장점</h4><ul><li>집중감 있음</li><li>차트 크게 표시</li></ul></div>
+        <div class="cons"><h4>단점</h4><ul><li>뒤 테이블 안 보임</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>우측 슬라이드 패널</h3>
+      <div class="mockup" style="margin-top:10px">
+        <div class="mockup-body" style="padding:0;height:200px;display:flex;gap:0;overflow:hidden">
+          <!-- 테이블 (좁아짐) -->
+          <div style="flex:1;padding:8px;font-size:9px">
+            <div style="color:#8b949e;margin-bottom:6px">보유종목</div>
+            <div style="background:#21262d;height:8px;border-radius:2px;margin-bottom:4px"></div>
+            <div style="background:#58a6ff22;height:8px;border-radius:2px;margin-bottom:4px;border-left:2px solid #58a6ff"></div>
+            <div style="background:#21262d;height:8px;border-radius:2px;margin-bottom:4px;width:80%"></div>
+          </div>
+          <!-- 슬라이드 패널 -->
+          <div style="width:55%;background:#161b22;border-left:1px solid #30363d;padding:10px;flex-shrink:0">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <div>
+                <div style="font-weight:700;font-size:11px;color:#e6edf3">SK하이닉스</div>
+                <div style="font-size:9px;color:#8b949e">000660.KS · 현재가 185,000원</div>
+              </div>
+              <div style="color:#8b949e;font-size:12px">✕</div>
+            </div>
+            <div style="background:#0d1117;border-radius:4px;height:100px;display:flex;align-items:center;justify-content:center;color:#8b949e;font-size:9px">
+              📈 TradingView 차트
+            </div>
+            <div style="margin-top:6px;font-size:9px;color:#8b949e">
+              <span style="color:#cf222e">+2,500원 (+1.37%)</span> · 평균단가 162,000원
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>장점</h4><ul><li>테이블 같이 보임</li><li>다른 종목 바로 클릭</li></ul></div>
+        <div class="cons"><h4>단점</h4><ul><li>차트가 상대적으로 작음</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>테이블 아래 인라인 확장</h3>
+      <div class="mockup" style="margin-top:10px">
+        <div class="mockup-body" style="padding:8px;height:200px;font-size:9px;overflow:hidden">
+          <div style="background:#21262d;height:8px;border-radius:2px;margin-bottom:4px"></div>
+          <!-- 선택된 행 -->
+          <div style="background:#1c2128;border:1px solid #58a6ff;border-radius:3px;padding:5px;margin-bottom:2px">
+            <div style="display:flex;justify-content:space-between;color:#e6edf3">
+              <span>SK하이닉스 <span style="color:#8b949e">000660</span></span>
+              <span style="color:#cf222e">+1.37%</span>
+            </div>
+          </div>
+          <!-- 인라인 차트 -->
+          <div style="background:#0d1117;border:1px solid #21262d;border-radius:3px;height:80px;display:flex;align-items:center;justify-content:center;color:#8b949e;margin-bottom:4px">
+            📈 TradingView 차트 (행 아래 확장)
+          </div>
+          <div style="background:#21262d;height:8px;border-radius:2px;margin-bottom:4px;width:90%"></div>
+          <div style="background:#21262d;height:8px;border-radius:2px;width:70%"></div>
+        </div>
+      </div>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>장점</h4><ul><li>자연스러운 흐름</li></ul></div>
+        <div class="cons"><h4>단점</h4><ul><li>차트 높이 제한됨</li><li>스크롤 많아짐</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>
