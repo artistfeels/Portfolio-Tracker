@@ -1,8 +1,7 @@
 // src/pages/Analytics.tsx
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { createChart, LineSeries } from 'lightweight-charts';
 import { useAnalytics } from '../hooks/useAnalytics';
-import type { HistoryPoint } from '../lib/types';
 
 function fmt(n: number) {
   return n.toLocaleString('ko-KR', { maximumFractionDigits: 0 }) + '원';
@@ -57,11 +56,17 @@ export default function Analytics() {
     return <div style={{ padding: 32, color: '#8b949e' }}>애널리틱스 데이터 로딩 중... (Yahoo Finance 과거 시세 fetch)</div>;
   }
 
-  const valueData = history.map((p: HistoryPoint) => ({ time: p.date as `${number}-${number}-${number}`, value: p.value_krw }));
-  const returnData = history.map((p: HistoryPoint) => ({
-    time: p.date as `${number}-${number}-${number}`,
-    value: p.invested_krw > 0 ? ((p.value_krw - p.invested_krw) / p.invested_krw) * 100 : 0,
-  }));
+  const valueData = useMemo(
+    () => history.map((p) => ({ time: p.date as `${number}-${number}-${number}`, value: p.value_krw })),
+    [history]
+  );
+  const returnData = useMemo(
+    () => history.map((p) => ({
+      time: p.date as `${number}-${number}-${number}`,
+      value: p.invested_krw > 0 ? ((p.value_krw - p.invested_krw) / p.invested_krw) * 100 : 0,
+    })),
+    [history]
+  );
 
   const cards = [
     { label: '포트폴리오 IRR', value: fmtPct(summary.portfolioIrr), positive: (summary.portfolioIrr ?? 0) >= 0 },
@@ -104,7 +109,7 @@ export default function Analytics() {
             </tr>
           </thead>
           <tbody>
-            {holdingIrrs
+            {[...holdingIrrs]
               .sort((a, b) => (b.irr ?? -Infinity) - (a.irr ?? -Infinity))
               .map((r, i) => {
                 const irrColor = r.irr === null ? '#8b949e' : r.irr >= 0 ? '#cf222e' : '#1f6feb';
