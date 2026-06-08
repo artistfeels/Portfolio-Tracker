@@ -12,6 +12,7 @@ export function calcHoldingsAtDate(
     const prev = holdings.get(tx.ticker) ?? 0;
     if (tx.action === 'buy') {
       holdings.set(tx.ticker, prev + tx.shares);
+    // dividend and split actions intentionally skipped — split ratio tracking not supported
     } else if (tx.action === 'sell') {
       const next = prev - tx.shares;
       if (next <= 0) holdings.delete(tx.ticker);
