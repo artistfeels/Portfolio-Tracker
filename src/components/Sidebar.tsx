@@ -16,7 +16,6 @@ export default function Sidebar({ current, onNavigate }: Props) {
   return (
     <nav style={{
       width: 140,
-      minHeight: '100vh',
       background: '#010409',
       borderRight: '1px solid #21262d',
       padding: '24px 0',
@@ -28,6 +27,7 @@ export default function Sidebar({ current, onNavigate }: Props) {
       {items.map(({ page, icon, label }) => (
         <button
           key={page}
+          aria-current={current === page ? 'page' : undefined}
           onClick={() => onNavigate(page)}
           style={{
             display: 'flex',
@@ -44,7 +44,7 @@ export default function Sidebar({ current, onNavigate }: Props) {
             textAlign: 'left',
           }}
         >
-          <span>{icon}</span>
+          <span aria-hidden="true">{icon}</span>
           <span>{label}</span>
         </button>
       ))}
