@@ -21,7 +21,14 @@ export default function Transactions() {
   const [preview, setPreview] = useState<Omit<Transaction, 'id'>[] | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   async function load() {
     setLoading(true);
@@ -29,8 +36,10 @@ export default function Transactions() {
       .from('transactions')
       .select('*')
       .order('trade_date', { ascending: false });
-    setRows((data ?? []) as Transaction[]);
-    setLoading(false);
+    if (mountedRef.current) {
+      setRows((data ?? []) as Transaction[]);
+      setLoading(false);
+    }
   }
 
   useEffect(() => { load(); }, []);
@@ -46,8 +55,18 @@ export default function Transactions() {
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
       const parsed = parseCsvToTransactions(text);
+      if (parsed.length === 0) {
+        setUploadResult('오류: 유효한 행이 없습니다. CSV 형식을 확인하세요.');
+        setUploadError(true);
+        return;
+      }
       setPreview(parsed);
       setUploadResult(null);
+      setUploadError(false);
+    };
+    reader.onerror = () => {
+      setUploadResult('오류: 파일을 읽을 수 없습니다.');
+      setUploadError(true);
     };
     reader.readAsText(file, 'utf-8');
     e.target.value = '';
@@ -57,14 +76,21 @@ export default function Transactions() {
     if (!preview) return;
     setUploading(true);
     const { error } = await supabase.from('transactions').insert(preview);
+    if (!mountedRef.current) return;
     if (error) {
       setUploadResult(`오류: ${error.message}`);
+      setUploadError(true);
     } else {
       setUploadResult(`✓ ${preview.length}건 추가됨`);
+      setUploadError(false);
       setPreview(null);
       load();
     }
     setUploading(false);
+  }
+
+  function handleModalKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Escape') setPreview(null);
   }
 
   return (
@@ -89,14 +115,20 @@ export default function Transactions() {
       </div>
 
       {uploadResult && (
-        <div style={{ marginBottom: 16, padding: '10px 14px', background: '#161b22', border: '1px solid #30363d', borderRadius: 6, fontSize: 13, color: uploadResult.startsWith('오류') ? '#cf222e' : '#3fb950' }}>
+        <div style={{ marginBottom: 16, padding: '10px 14px', background: '#161b22', border: '1px solid #30363d', borderRadius: 6, fontSize: 13, color: uploadError ? '#cf222e' : '#3fb950' }}>
           {uploadResult}
         </div>
       )}
 
       {/* 업로드 미리보기 모달 */}
       {preview && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="업로드 미리보기"
+          onKeyDown={handleModalKeyDown}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
           <div style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 10, padding: 24, width: 600, maxHeight: '80vh', overflow: 'auto' }}>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>업로드 미리보기 — {preview.length}건</div>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
