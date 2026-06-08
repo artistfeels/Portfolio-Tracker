@@ -10,7 +10,7 @@ describe('calcIrr', () => {
     ];
     const irr = calcIrr(cfs);
     expect(irr).not.toBeNull();
-    expect(irr!).toBeCloseTo(0.414, 2);
+    expect(irr!).toBeCloseTo(0.4145, 3);
   });
 
   it('현금흐름이 1개이면 null 반환', () => {
@@ -44,5 +44,27 @@ describe('calcPortfolioIrr', () => {
     const irr = calcPortfolioIrr(txs, holdings);
     expect(irr).not.toBeNull();
     expect(irr!).toBeGreaterThan(0);
+  });
+});
+
+describe('calcHoldingIrrs', () => {
+  it('단일 종목 IRR 반환', () => {
+    const txs: Transaction[] = [
+      { id: '1', ticker: 'AAPL', name: 'Apple', action: 'buy', shares: 10, price_krw: 100000,
+        trade_date: '2023-01-01', sector: null, region: '해외', asset_group: null, funding_source: null, notes: null },
+    ];
+    const holdings: HoldingWithPrice[] = [
+      { ticker: 'AAPL', name: 'Apple', shares: 10, avg_price_krw: 100000,
+        total_principal_krw: 1000000, current_price_krw: 150000, market_value_krw: 1500000,
+        profit_krw: 500000, profit_pct: 50, sector: null, region: '해외',
+        asset_group: null, price_source: 'yahoo' },
+    ];
+    const results = calcHoldingIrrs(txs, holdings);
+    expect(results).toHaveLength(1);
+    expect(results[0].ticker).toBe('AAPL');
+    expect(results[0].irr).not.toBeNull();
+    expect(results[0].irr!).toBeGreaterThan(0);
+    expect(results[0].invested_krw).toBe(1000000);
+    expect(results[0].current_value_krw).toBe(1500000);
   });
 });

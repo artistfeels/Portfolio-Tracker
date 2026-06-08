@@ -62,7 +62,7 @@ export function calcSummary(holdings: { market_value_krw: number; total_principa
   return { totalValue, totalPrincipal, totalProfit, profitPct };
 }
 
-interface Cashflow {
+export interface Cashflow {
   date: Date;
   amount: number;
 }
@@ -81,10 +81,11 @@ export function calcIrr(cashflows: Cashflow[]): number | null {
   }
 
   let lo = -0.999, hi = 100;
-  if (npv(lo) * npv(hi) > 0) return null;
+  const fLo = npv(lo);
+  if (fLo * npv(hi) > 0) return null;
   for (let i = 0; i < 300; i++) {
     const mid = (lo + hi) / 2;
-    if (npv(mid) > 0) lo = mid; else hi = mid;
+    if (npv(mid) * fLo > 0) lo = mid; else hi = mid;
     if (hi - lo < 1e-7) break;
   }
   return (lo + hi) / 2;
@@ -118,6 +119,7 @@ export function calcHoldingIrrs(
   transactions: Transaction[],
   holdings: HoldingWithPrice[]
 ): IrrResult[] {
+  const today = new Date();
   return holdings
     .filter((h) => h.ticker !== 'CASH')
     .map((h) => {
@@ -130,7 +132,7 @@ export function calcHoldingIrrs(
       })).filter((cf) => cf.amount !== 0);
 
       if (h.market_value_krw > 0) {
-        cfs.push({ date: new Date(), amount: h.market_value_krw });
+        cfs.push({ date: today, amount: h.market_value_krw });
       }
 
       const firstTx = [...txs].sort((a, b) => a.trade_date.localeCompare(b.trade_date))[0];
