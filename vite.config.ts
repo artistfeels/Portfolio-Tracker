@@ -5,11 +5,15 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      // Yahoo Finance (한국/미국/홍콩 시세 + 환율 + 금)
       '/api/yahoo': {
         target: 'https://query1.finance.yahoo.com',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/yahoo/, ''),
+      },
+      '/api/fred': {
+        target: 'https://api.stlouisfed.org',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/fred/, ''),
       },
     },
   },
