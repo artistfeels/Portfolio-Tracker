@@ -1,9 +1,17 @@
-// src/lib/prices.ts
 import type { PriceResult } from './types';
 
 const TROY_OZ_TO_GRAM = 31.1035;
+const CACHE_TTL_MS = 30 * 1000;
 
-const priceCache = new Map<string, { price_krw: number; display_name?: string; fetched_at: string }>();
+interface CacheEntry {
+  price_krw: number;
+  daily_change_pct: number | null;
+  prev_close_krw: number;
+  display_name?: string;
+  fetched_at: string;
+}
+
+const priceCache = new Map<string, CacheEntry>();
 
 export const KR_TICKER_SUFFIX: Record<string, string> = {
   '000660': 'KS',
@@ -27,8 +35,13 @@ async function fetchWithTimeout(url: string, ms = 8000): Promise<Response> {
   }
 }
 
-// Yahoo Finance 단일 요청 → { price, name }
-async function fetchYahoo(symbol: string): Promise<{ price: number | null; name?: string }> {
+interface YahooResult {
+  price: number | null;
+  name?: string;
+  prevClose: number | null;
+}
+
+async function fetchYahoo(symbol: string): Promise<YahooResult> {
   try {
     const res = await fetchWithTimeout(
       `/api/yahoo/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`
@@ -36,26 +49,40 @@ async function fetchYahoo(symbol: string): Promise<{ price: number | null; name?
     const j = await res.json();
     const meta = j?.chart?.result?.[0]?.meta;
     const price = meta?.regularMarketPrice;
+    const prevClose = meta?.chartPreviousClose ?? meta?.previousClose ?? null;
     return {
       price: typeof price === 'number' && price > 0 ? price : null,
       name: meta?.longName ?? meta?.shortName,
+      prevClose: typeof prevClose === 'number' && prevClose > 0 ? prevClose : null,
     };
   } catch {
-    return { price: null };
+    return { price: null, prevClose: null };
   }
 }
 
-async function fetchKrStock(ticker: string): Promise<{ price: number | null; name?: string }> {
+async function fetchKrStock(ticker: string): Promise<YahooResult> {
   const suffix = KR_TICKER_SUFFIX[ticker];
   if (suffix) {
     const r = await fetchYahoo(`${ticker}.${suffix}`);
-    if (r.price) return { price: Math.round(r.price), name: r.name };
+    if (r.price) return {
+      price: Math.round(r.price),
+      name: r.name,
+      prevClose: r.prevClose ? Math.round(r.prevClose) : null,
+    };
   }
   const ks = await fetchYahoo(`${ticker}.KS`);
-  if (ks.price) return { price: Math.round(ks.price), name: ks.name };
+  if (ks.price) return {
+    price: Math.round(ks.price),
+    name: ks.name,
+    prevClose: ks.prevClose ? Math.round(ks.prevClose) : null,
+  };
   const kq = await fetchYahoo(`${ticker}.KQ`);
-  if (kq.price) return { price: Math.round(kq.price), name: kq.name };
-  return { price: null };
+  if (kq.price) return {
+    price: Math.round(kq.price),
+    name: kq.name,
+    prevClose: kq.prevClose ? Math.round(kq.prevClose) : null,
+  };
+  return { price: null, prevClose: null };
 }
 
 function toYahooSym(ticker: string): string {
@@ -66,43 +93,67 @@ function toYahooSym(ticker: string): string {
 export async function fetchPrice(ticker: string, usdKrwRate: number): Promise<PriceResult> {
   const now = new Date().toISOString();
   const cached = priceCache.get(ticker);
-  if (cached) return { ticker, ...cached, source: 'cache' };
+  if (cached && Date.now() - new Date(cached.fetched_at).getTime() < CACHE_TTL_MS) {
+    return { ticker, ...cached, source: 'cache' };
+  }
 
   let price_krw: number | null = null;
+  let daily_change_pct: number | null = null;
+  let prev_close_krw = 0;
   let display_name: string | undefined;
   let source: PriceResult['source'] = 'manual';
 
   if (ticker === 'GOLD') {
-    const { price: gcUsd, name } = await fetchYahoo('GC=F');
+    const { price: gcUsd, name, prevClose } = await fetchYahoo('GC=F');
+    source = 'yahoo';
     if (gcUsd) {
       price_krw = Math.round((gcUsd * usdKrwRate) / TROY_OZ_TO_GRAM);
       display_name = name ?? '금 현물';
+      if (prevClose) {
+        prev_close_krw = Math.round((prevClose * usdKrwRate) / TROY_OZ_TO_GRAM);
+        daily_change_pct = (gcUsd - prevClose) / prevClose * 100;
+      }
     }
-    source = 'yahoo';
   } else if (/^\d{6}$/.test(ticker)) {
-    const { price, name } = await fetchKrStock(ticker);
+    const { price, name, prevClose } = await fetchKrStock(ticker);
+    source = 'yahoo';
     price_krw = price;
     display_name = name;
-    source = 'yahoo';
+    if (price && prevClose) {
+      prev_close_krw = prevClose;
+      daily_change_pct = (price - prevClose) / prevClose * 100;
+    }
   } else {
-    const { price: raw, name } = await fetchYahoo(toYahooSym(ticker));
-    display_name = name;
+    const isHk = /^\d{4}$/.test(ticker);
+    const { price: raw, name, prevClose } = await fetchYahoo(toYahooSym(ticker));
     source = 'yahoo';
+    display_name = name;
     if (raw) {
-      price_krw = /^\d{4}$/.test(ticker)
+      price_krw = isHk
         ? Math.round(raw * (usdKrwRate / 7.78))
         : Math.round(raw * usdKrwRate);
+      if (prevClose) {
+        prev_close_krw = isHk
+          ? Math.round(prevClose * (usdKrwRate / 7.78))
+          : Math.round(prevClose * usdKrwRate);
+        daily_change_pct = (raw - prevClose) / prevClose * 100;
+      }
     }
   }
 
   const result: PriceResult = {
     ticker,
     price_krw: price_krw ?? 0,
+    daily_change_pct,
+    prev_close_krw,
     source: price_krw ? source : 'manual',
     fetched_at: now,
     display_name,
   };
-  if (price_krw) priceCache.set(ticker, { price_krw, display_name, fetched_at: now });
+
+  if (price_krw) {
+    priceCache.set(ticker, { price_krw, daily_change_pct, prev_close_krw, display_name, fetched_at: now });
+  }
   return result;
 }
 
@@ -121,14 +172,15 @@ export async function fetchAllPrices(
     const r = await fetchPrice(tickers[i], usdKrwRate);
     result.set(tickers[i], r);
     onProgress?.(i + 1, tickers.length);
-    if (i < tickers.length - 1 && r.source !== 'cache') await new Promise((res) => setTimeout(res, 200));
+    if (i < tickers.length - 1 && r.source !== 'cache') {
+      await new Promise((res) => setTimeout(res, 200));
+    }
   }
   return result;
 }
 
-// 차트용 Yahoo 심볼 반환 (GOLD, KR, HK, US)
 export function toChartSymbol(ticker: string): string {
-  if (ticker === 'GOLD') return 'XAUUSD=X';
+  if (ticker === 'GOLD') return 'GC=F';
   if (ticker === 'CASH') return '';
   if (/^\d{6}$/.test(ticker)) {
     const suffix = KR_TICKER_SUFFIX[ticker] ?? 'KS';

@@ -90,6 +90,8 @@ export function useAnalytics() {
             profit_krw: profit,
             profit_pct: h.total_principal_krw > 0 ? (profit / h.total_principal_krw) * 100 : 0,
             price_source: p?.source ?? 'manual',
+            daily_change_pct: p?.daily_change_pct ?? null,
+            prev_close_krw: p?.prev_close_krw ?? 0,
           };
         });
 
@@ -100,7 +102,12 @@ export function useAnalytics() {
         const firstDate = txs[0].trade_date;
         const years = (Date.now() - new Date(firstDate).getTime()) / (365.25 * 24 * 3600 * 1000);
 
-        const period1 = Math.floor(new Date(txs[0].trade_date).getTime() / 1000);
+        // Limit history to 1 year to prevent browser overload
+        const ONE_YEAR_SECS = 365 * 24 * 3600;
+        const period1 = Math.max(
+          Math.floor(new Date(txs[0].trade_date).getTime() / 1000),
+          Math.floor(Date.now() / 1000) - ONE_YEAR_SECS
+        );
         const period2 = Math.floor(Date.now() / 1000);
 
         const [hist, rfAnnual, spxCloses] = await Promise.all([
