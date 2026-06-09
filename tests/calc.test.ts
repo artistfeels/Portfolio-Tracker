@@ -97,6 +97,11 @@ describe('calcRiskRatios', () => {
     expect(r).toEqual({ sharpe: null, sortino: null, treynor: null, beta: null });
   });
 
+  it('returns all-null when arrays have different lengths', () => {
+    const r = calcRiskRatios([0.01, 0.02, 0.03, 0.04, 0.05], [0.01, 0.02, 0.03, 0.04], 0);
+    expect(r).toEqual({ sharpe: null, sortino: null, treynor: null, beta: null });
+  });
+
   it('returns Treynor null when market has zero variance', () => {
     const flat = [0.01, 0.01, 0.01, 0.01, 0.01];
     const r = calcRiskRatios(rets, flat, 0);

@@ -168,12 +168,13 @@ function sampleCov(a: number[], b: number[]): number {
   return a.reduce((s, v, i) => s + (v - ma) * (b[i] - mb), 0) / (a.length - 1);
 }
 
+/** Expects weekly returns (e.g. from weekly portfolio history). Annualizes using factor 52. */
 export function calcRiskRatios(
   portfolioReturns: number[],
   marketReturns: number[],
   rfAnnual: number
 ): RiskRatios {
-  if (portfolioReturns.length < 4 || marketReturns.length < 4) {
+  if (portfolioReturns.length < 4 || marketReturns.length < 4 || portfolioReturns.length !== marketReturns.length) {
     return { sharpe: null, sortino: null, treynor: null, beta: null };
   }
 
@@ -182,6 +183,7 @@ export function calcRiskRatios(
   const R_p_ann = mean(portfolioReturns) * 52;
   const σ_p_ann = Math.sqrt(sampleVar(portfolioReturns)) * Math.sqrt(52);
 
+  // population semi-variance (industry convention for Sortino downside deviation)
   const downsideVariance =
     portfolioReturns.reduce((s, r) => s + Math.min(r - rfWeekly, 0) ** 2, 0) / n;
   const σ_d_ann = Math.sqrt(downsideVariance) * Math.sqrt(52);
