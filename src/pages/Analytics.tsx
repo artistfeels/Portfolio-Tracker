@@ -11,6 +11,10 @@ function fmtPct(n: number | null): string {
   const sign = n >= 0 ? '+' : '';
   return sign + (n * 100).toFixed(2) + '%';
 }
+function fmtRatio(n: number | null, digits = 2): string {
+  if (n === null) return '-';
+  return n.toFixed(digits);
+}
 
 function LineChart({ data, color, label }: {
   data: { time: string; value: number }[];
@@ -89,6 +93,33 @@ export default function Analytics() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* 리스크 지표 */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ fontSize: 11, color: '#8b949e', marginBottom: 10, letterSpacing: '0.04em' }}>
+          리스크 지표 &middot; S&amp;P500 벤치마크 &middot; SOFR 무위험금리
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+          {[
+            { label: '샤프 비율', value: fmtRatio(summary.sharpe), raw: summary.sharpe, neutral: false },
+            { label: '소르티노 비율', value: fmtRatio(summary.sortino), raw: summary.sortino, neutral: false },
+            { label: '트레이너 비율', value: fmtRatio(summary.treynor), raw: summary.treynor, neutral: false },
+            { label: '베타 (β)', value: fmtRatio(summary.beta, 3), raw: summary.beta, neutral: true },
+          ].map((c) => {
+            const color = c.raw === null
+              ? '#8b949e'
+              : c.neutral
+              ? '#e6edf3'
+              : c.raw >= 0 ? '#cf222e' : '#1f6feb';
+            return (
+              <div key={c.label} style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, padding: '16px 20px' }}>
+                <div style={{ fontSize: 12, color: '#8b949e', marginBottom: 6 }}>{c.label}</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color }}>{c.value}</div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* 차트 2열 */}
