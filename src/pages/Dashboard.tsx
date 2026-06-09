@@ -30,8 +30,12 @@ function nativePrice(ticker: string, krwPrice: number, usdKrw: number): string {
 function nativeChange(ticker: string, krwChange: number, usdKrw: number): string {
   const sign = krwChange >= 0 ? '+' : '';
   if (/^\d{6}$/.test(ticker) || ticker === 'GOLD') return sign + krwChange.toLocaleString('ko-KR') + '원';
-  if (/^\d{4}$/.test(ticker)) return sign + 'HK$' + (krwChange / usdKrw * 7.78).toFixed(2);
-  return sign + '$' + (krwChange / usdKrw).toFixed(2);
+  if (/^\d{4}$/.test(ticker)) {
+    const v = (krwChange / usdKrw * 7.78);
+    return (v >= 0 ? '+' : '') + 'HK$' + Math.abs(v).toFixed(2);
+  }
+  const v = krwChange / usdKrw;
+  return (v >= 0 ? '+' : '-') + '$' + Math.abs(v).toFixed(2);
 }
 
 export default function Dashboard({ portfolio }: Props) {
@@ -39,7 +43,8 @@ export default function Dashboard({ portfolio }: Props) {
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
   const [tab, setTab] = useState<'시세' | '평가'>('시세');
 
-  // Daily P&L
+  // ── 일간 손익 ───────────────────────────────────────
+  // 같은 환율 기준으로 전일 대비 KRW 변화 계산 (오늘 환율로 양쪽 모두 환산)
   const dailyPnl = holdings.reduce((sum, h) => {
     if (h.ticker === 'CASH' || h.prev_close_krw <= 0 || h.price_source === 'loading') return sum;
     return sum + (h.current_price_krw - h.prev_close_krw) * h.shares;
@@ -52,7 +57,7 @@ export default function Dashboard({ portfolio }: Props) {
   const dailyColor = dailyPnl >= 0 ? '#cf222e' : '#1f6feb';
   const hasDailyData = prevDayTotal > 0;
 
-  // Today's movers
+  // ── 오늘의 움직임 ───────────────────────────────────
   const withPnl = holdings
     .filter(h => h.ticker !== 'CASH' && h.daily_change_pct !== null && h.prev_close_krw > 0)
     .map(h => ({ ...h, dailyPnl: (h.current_price_krw - h.prev_close_krw) * h.shares }));
@@ -60,11 +65,32 @@ export default function Dashboard({ portfolio }: Props) {
     .sort((a, b) => (b.daily_change_pct ?? 0) - (a.daily_change_pct ?? 0)).slice(0, 3);
   const losers = [...withPnl].filter(h => h.dailyPnl < 0)
     .sort((a, b) => (a.daily_change_pct ?? 0) - (b.daily_change_pct ?? 0)).slice(0, 3);
-  const showMovers = withPnl.length >= 2;
+  const showMovers = withPnl.length >= 1;
 
-  // Allocation bar
-  const stockHoldings = holdings.filter(h => h.ticker !== 'CASH' && h.market_value_krw > 0);
-  const totalStockVal = stockHoldings.reduce((s, h) => s + h.market_value_krw, 0);
+  // ── 자산 구성 ───────────────────────────────────────
+  const assetGroups = [
+    {
+      label: '한국 주식',
+      value: holdings.filter(h => h.region === '한국' && h.ticker !== 'CASH').reduce((s, h) => s + h.market_value_krw, 0),
+      color: '#cf222e',
+    },
+    {
+      label: '해외 주식',
+      value: holdings.filter(h => h.region === '해외' && h.ticker !== 'GOLD').reduce((s, h) => s + h.market_value_krw, 0),
+      color: '#1f6feb',
+    },
+    {
+      label: '금',
+      value: holdings.find(h => h.ticker === 'GOLD')?.market_value_krw ?? 0,
+      color: '#ffa500',
+    },
+    {
+      label: '현금',
+      value: holdings.find(h => h.ticker === 'CASH')?.market_value_krw ?? 0,
+      color: '#3fb950',
+    },
+  ].filter(g => g.value > 0);
+  const assetTotal = assetGroups.reduce((s, g) => s + g.value, 0);
 
   if (status === 'error') {
     return (
@@ -89,12 +115,12 @@ export default function Dashboard({ portfolio }: Props) {
   }
 
   return (
-    <div style={{ padding: '24px 48px', minWidth: 0 }}>
+    <div style={{ padding: '20px 24px', minWidth: 0 }}>
 
       {/* ── 헤더 ──────────────────────────────────────── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
         <div>
-          <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: -1, lineHeight: 1 }}>
+          <div style={{ fontSize: 34, fontWeight: 700, letterSpacing: -1, lineHeight: 1 }}>
             {fmtKrw(summary.totalValue)}
           </div>
           <div style={{ marginTop: 6, fontSize: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -117,12 +143,8 @@ export default function Dashboard({ portfolio }: Props) {
 
         <div style={{ textAlign: 'right', fontSize: 12, color: '#8b949e', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {isRefreshing && (
-              <span style={{ color: '#1f6feb', fontSize: 11 }}>● 업데이트 중</span>
-            )}
-            {lastUpdated && !isRefreshing && (
-              <span>{timeSince(lastUpdated)} 업데이트</span>
-            )}
+            {isRefreshing && <span style={{ color: '#1f6feb', fontSize: 11 }}>● 업데이트 중</span>}
+            {lastUpdated && !isRefreshing && <span>{timeSince(lastUpdated)} 업데이트</span>}
             <button
               onClick={() => reload()}
               style={{ background: '#21262d', border: '1px solid #30363d', color: '#e6edf3', padding: '5px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}
@@ -134,8 +156,8 @@ export default function Dashboard({ portfolio }: Props) {
         </div>
       </div>
 
-      {/* ── 요약 카드 ──────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+      {/* ── 요약 카드 4개 ─────────────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 16 }}>
         {[
           { label: '총 평가금액', value: fmtKrw(summary.totalValue), color: '#e6edf3' },
           {
@@ -155,9 +177,9 @@ export default function Dashboard({ portfolio }: Props) {
             color: summary.profitPct >= 0 ? '#cf222e' : '#1f6feb',
           },
         ].map((c) => (
-          <div key={c.label} style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, padding: '14px 18px' }}>
-            <div style={{ fontSize: 11, color: '#8b949e', marginBottom: 6 }}>{c.label}</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: c.color }}>{c.value}</div>
+          <div key={c.label} style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, padding: '12px 16px' }}>
+            <div style={{ fontSize: 11, color: '#8b949e', marginBottom: 5 }}>{c.label}</div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: c.color }}>{c.value}</div>
             {'sub' in c && c.sub && (
               <div style={{ fontSize: 12, color: c.color, marginTop: 2 }}>{c.sub}</div>
             )}
@@ -165,85 +187,70 @@ export default function Dashboard({ portfolio }: Props) {
         ))}
       </div>
 
-      {/* ── 포트폴리오 구성 바 ─────────────────────────── */}
-      {totalStockVal > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ display: 'flex', height: 10, borderRadius: 5, overflow: 'hidden', background: '#21262d', marginBottom: 6 }}>
-            {stockHoldings.map(h => {
-              const w = (h.market_value_krw / totalStockVal) * 100;
-              const color = h.price_source === 'loading' ? '#30363d'
-                : h.daily_change_pct === null ? '#30363d'
-                : h.daily_change_pct >= 0 ? '#cf222e' : '#1f6feb';
-              return (
-                <div
-                  key={h.ticker}
-                  style={{ width: `${w}%`, background: color, transition: 'background 0.3s' }}
-                  title={`${h.name}: ${w.toFixed(1)}%${h.daily_change_pct !== null ? ` (${fmtSign(h.daily_change_pct)})` : ''}`}
-                />
-              );
-            })}
-          </div>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            {stockHoldings.slice(0, 8).map(h => {
-              const w = (h.market_value_krw / totalStockVal) * 100;
-              const color = h.price_source === 'loading' ? '#8b949e'
-                : h.daily_change_pct === null ? '#8b949e'
-                : h.daily_change_pct >= 0 ? '#cf222e' : '#1f6feb';
-              return (
-                <div key={h.ticker} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#8b949e' }}>
-                  <div style={{ width: 6, height: 6, borderRadius: 1, background: color, flexShrink: 0 }} />
-                  <span>{h.name.length > 6 ? h.name.slice(0, 6) : h.name}</span>
-                  <span>{w.toFixed(1)}%</span>
-                  {h.daily_change_pct !== null && (
-                    <span style={{ color }}>{fmtSign(h.daily_change_pct, 1)}</span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {/* ── 자산 구성 + 오늘의 움직임 ────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: showMovers ? '1fr 1fr' : '1fr', gap: 10, marginBottom: 16 }}>
 
-      {/* ── 오늘의 움직임 ──────────────────────────────── */}
-      {showMovers && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
-          {/* 상승 */}
+        {/* 자산 구성 */}
+        {assetGroups.length > 0 && (
           <div style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, padding: '12px 16px' }}>
-            <div style={{ fontSize: 11, color: '#8b949e', marginBottom: 8 }}>상승 상위</div>
-            {gainers.length === 0
-              ? <div style={{ fontSize: 12, color: '#8b949e' }}>없음</div>
-              : gainers.map(h => (
-                <div key={h.ticker} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                  <span style={{ fontSize: 13, fontWeight: 500 }}>{h.name.length > 10 ? h.name.slice(0, 10) : h.name}</span>
-                  <div style={{ textAlign: 'right' }}>
-                    <span style={{ fontSize: 13, color: '#cf222e', fontWeight: 600 }}>{fmtSign(h.daily_change_pct ?? 0, 2)}</span>
-                    <span style={{ fontSize: 11, color: '#cf222e', marginLeft: 6 }}>+{fmtKrw(Math.round(h.dailyPnl))}</span>
+            <div style={{ fontSize: 11, color: '#8b949e', marginBottom: 10 }}>자산 구성</div>
+            {assetGroups.map(g => {
+              const pct = assetTotal > 0 ? g.value / assetTotal * 100 : 0;
+              return (
+                <div key={g.label} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
+                  <div style={{ width: 70, fontSize: 11, color: '#8b949e', flexShrink: 0, textAlign: 'right' }}>{g.label}</div>
+                  <div style={{ flex: 1, height: 14, background: '#21262d', borderRadius: 3, overflow: 'hidden' }}>
+                    <div style={{ width: `${pct}%`, height: '100%', background: g.color, borderRadius: 3, transition: 'width 0.5s' }} />
+                  </div>
+                  <div style={{ width: 38, fontSize: 11, color: g.color, textAlign: 'right', flexShrink: 0 }}>{pct.toFixed(1)}%</div>
+                  <div style={{ width: 100, fontSize: 11, color: '#e6edf3', textAlign: 'right', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
+                    {(g.value / 1_0000).toFixed(0)}만원
                   </div>
                 </div>
-              ))
-            }
+              );
+            })}
           </div>
-          {/* 하락 */}
-          <div style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, padding: '12px 16px' }}>
-            <div style={{ fontSize: 11, color: '#8b949e', marginBottom: 8 }}>하락 상위</div>
-            {losers.length === 0
-              ? <div style={{ fontSize: 12, color: '#8b949e' }}>없음</div>
-              : losers.map(h => (
-                <div key={h.ticker} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                  <span style={{ fontSize: 13, fontWeight: 500 }}>{h.name.length > 10 ? h.name.slice(0, 10) : h.name}</span>
-                  <div style={{ textAlign: 'right' }}>
-                    <span style={{ fontSize: 13, color: '#1f6feb', fontWeight: 600 }}>{fmtSign(h.daily_change_pct ?? 0, 2)}</span>
-                    <span style={{ fontSize: 11, color: '#1f6feb', marginLeft: 6 }}>{fmtKrw(Math.round(h.dailyPnl))}</span>
+        )}
+
+        {/* 오늘의 움직임 */}
+        {showMovers && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, padding: '12px 16px' }}>
+              <div style={{ fontSize: 11, color: '#8b949e', marginBottom: 8 }}>상승 상위</div>
+              {gainers.length === 0
+                ? <div style={{ fontSize: 12, color: '#8b949e' }}>없음</div>
+                : gainers.map(h => (
+                  <div key={h.ticker} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                    <span style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 80 }}>{h.name}</span>
+                    <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 4 }}>
+                      <span style={{ fontSize: 13, color: '#cf222e', fontWeight: 600 }}>{fmtSign(h.daily_change_pct ?? 0, 2)}</span>
+                      <div style={{ fontSize: 10, color: '#cf222e' }}>+{Math.round(h.dailyPnl / 10000)}만원</div>
+                    </div>
                   </div>
-                </div>
-              ))
-            }
+                ))
+              }
+            </div>
+            <div style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, padding: '12px 16px' }}>
+              <div style={{ fontSize: 11, color: '#8b949e', marginBottom: 8 }}>하락 상위</div>
+              {losers.length === 0
+                ? <div style={{ fontSize: 12, color: '#8b949e' }}>없음</div>
+                : losers.map(h => (
+                  <div key={h.ticker} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                    <span style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 80 }}>{h.name}</span>
+                    <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 4 }}>
+                      <span style={{ fontSize: 13, color: '#1f6feb', fontWeight: 600 }}>{fmtSign(h.daily_change_pct ?? 0, 2)}</span>
+                      <div style={{ fontSize: 10, color: '#1f6feb' }}>{Math.round(h.dailyPnl / 10000)}만원</div>
+                    </div>
+                  </div>
+                ))
+              }
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* ── 시세 / 평가 탭 ────────────────────────────── */}
-      <div style={{ display: 'flex', gap: 0, marginBottom: 0, borderBottom: '1px solid #30363d' }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid #30363d', marginBottom: 0 }}>
         {(['시세', '평가'] as const).map(t => (
           <button
             key={t}
@@ -271,13 +278,13 @@ export default function Dashboard({ portfolio }: Props) {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#21262d', color: '#8b949e', fontSize: 11 }}>
-                <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 500 }}>종목</th>
-                <th style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 500 }}>현재가</th>
-                <th style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 500 }}>전일대비</th>
-                <th style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 500 }}>등락률</th>
-                <th style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 500 }}>평가금액</th>
-                <th style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 500 }}>일간 손익</th>
-                <th style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 500 }}>비중</th>
+                <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 500 }}>종목</th>
+                <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 500 }}>현재가</th>
+                <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 500 }}>전일대비</th>
+                <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 500 }}>등락률</th>
+                <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 500 }}>평가금액</th>
+                <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 500 }}>일간 손익</th>
+                <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 500 }}>비중</th>
               </tr>
             </thead>
             <tbody>
@@ -303,29 +310,27 @@ export default function Dashboard({ portfolio }: Props) {
                         cursor: isCash ? 'default' : 'pointer',
                       }}
                     >
-                      <td style={{ padding: '10px 16px' }}>
-                        <div style={{ fontWeight: 600, fontSize: 14 }}>{h.name}</div>
-                        <div style={{ fontSize: 11, color: '#8b949e', marginTop: 1 }}>{h.ticker}</div>
+                      <td style={{ padding: '9px 14px' }}>
+                        <div style={{ fontWeight: 600, fontSize: 13 }}>{h.name}</div>
+                        <div style={{ fontSize: 10, color: '#8b949e', marginTop: 1 }}>{h.ticker}</div>
                       </td>
-                      <td style={{ padding: '10px 16px', textAlign: 'right', color: isCash ? '#8b949e' : '#e6edf3', fontVariantNumeric: 'tabular-nums' }}>
+                      <td style={{ padding: '9px 14px', textAlign: 'right', color: isCash ? '#8b949e' : '#e6edf3', fontVariantNumeric: 'tabular-nums' }}>
                         {isCash ? fmtKrw(h.market_value_krw) : isLoading ? <span style={{ color: '#8b949e' }}>...</span> : nativePrice(h.ticker, h.current_price_krw, usdKrw)}
                       </td>
-                      <td style={{ padding: '10px 16px', textAlign: 'right', color: pctColor, fontVariantNumeric: 'tabular-nums' }}>
-                        {isCash || isLoading || krwChange === null ? '-'
-                          : nativeChange(h.ticker, krwChange, usdKrw)}
+                      <td style={{ padding: '9px 14px', textAlign: 'right', color: pctColor, fontVariantNumeric: 'tabular-nums' }}>
+                        {isCash || isLoading || krwChange === null ? '-' : nativeChange(h.ticker, krwChange, usdKrw)}
                       </td>
-                      <td style={{ padding: '10px 16px', textAlign: 'right', color: pctColor, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-                        {isCash || isLoading ? '-'
-                          : pct !== null ? fmtSign(pct) : '-'}
+                      <td style={{ padding: '9px 14px', textAlign: 'right', color: pctColor, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                        {isCash || isLoading ? '-' : pct !== null ? fmtSign(pct) : '-'}
                       </td>
-                      <td style={{ padding: '10px 16px', textAlign: 'right', color: '#e6edf3', fontVariantNumeric: 'tabular-nums' }}>
+                      <td style={{ padding: '9px 14px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                         {fmtKrw(h.market_value_krw)}
                       </td>
-                      <td style={{ padding: '10px 16px', textAlign: 'right', color: holdingDailyPnl === null ? '#8b949e' : holdingDailyPnl >= 0 ? '#cf222e' : '#1f6feb', fontVariantNumeric: 'tabular-nums' }}>
+                      <td style={{ padding: '9px 14px', textAlign: 'right', color: holdingDailyPnl === null ? '#8b949e' : holdingDailyPnl >= 0 ? '#cf222e' : '#1f6feb', fontVariantNumeric: 'tabular-nums' }}>
                         {isCash || isLoading || holdingDailyPnl === null ? '-'
                           : (holdingDailyPnl >= 0 ? '+' : '') + fmtKrw(Math.round(holdingDailyPnl))}
                       </td>
-                      <td style={{ padding: '10px 16px', textAlign: 'right', color: '#8b949e', fontVariantNumeric: 'tabular-nums' }}>
+                      <td style={{ padding: '9px 14px', textAlign: 'right', color: '#8b949e', fontVariantNumeric: 'tabular-nums' }}>
                         {weight.toFixed(1)}%
                       </td>
                     </tr>
@@ -345,14 +350,14 @@ export default function Dashboard({ portfolio }: Props) {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#21262d', color: '#8b949e', fontSize: 11 }}>
-                <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 500 }}>종목</th>
-                <th style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 500 }}>수량</th>
-                <th style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 500 }}>평균단가</th>
-                <th style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 500 }}>현재가</th>
-                <th style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 500 }}>평가금액</th>
-                <th style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 500 }}>평가손익</th>
-                <th style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 500 }}>수익률</th>
-                <th style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 500 }}>비중</th>
+                <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 500 }}>종목</th>
+                <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 500 }}>수량</th>
+                <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 500 }}>평균단가</th>
+                <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 500 }}>현재가</th>
+                <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 500 }}>평가금액</th>
+                <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 500 }}>평가손익</th>
+                <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 500 }}>수익률</th>
+                <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 500 }}>비중</th>
               </tr>
             </thead>
             <tbody>
@@ -373,29 +378,29 @@ export default function Dashboard({ portfolio }: Props) {
                         cursor: isCash ? 'default' : 'pointer',
                       }}
                     >
-                      <td style={{ padding: '10px 16px' }}>
-                        <div style={{ fontWeight: 600, fontSize: 14 }}>{h.name}</div>
-                        <div style={{ fontSize: 11, color: '#8b949e', marginTop: 1 }}>{h.ticker}</div>
+                      <td style={{ padding: '9px 14px' }}>
+                        <div style={{ fontWeight: 600, fontSize: 13 }}>{h.name}</div>
+                        <div style={{ fontSize: 10, color: '#8b949e', marginTop: 1 }}>{h.ticker}</div>
                       </td>
-                      <td style={{ padding: '10px 16px', textAlign: 'right', color: isCash ? '#8b949e' : '#e6edf3', fontVariantNumeric: 'tabular-nums' }}>
+                      <td style={{ padding: '9px 14px', textAlign: 'right', color: isCash ? '#8b949e' : '#e6edf3', fontVariantNumeric: 'tabular-nums' }}>
                         {isCash ? '-' : h.shares.toLocaleString()}
                       </td>
-                      <td style={{ padding: '10px 16px', textAlign: 'right', color: isCash ? '#8b949e' : '#e6edf3', fontVariantNumeric: 'tabular-nums' }}>
+                      <td style={{ padding: '9px 14px', textAlign: 'right', color: isCash ? '#8b949e' : '#e6edf3', fontVariantNumeric: 'tabular-nums' }}>
                         {isCash ? '-' : fmtKrw(h.avg_price_krw)}
                       </td>
-                      <td style={{ padding: '10px 16px', textAlign: 'right', color: isCash ? '#8b949e' : '#e6edf3', fontVariantNumeric: 'tabular-nums' }}>
+                      <td style={{ padding: '9px 14px', textAlign: 'right', color: isCash ? '#8b949e' : '#e6edf3', fontVariantNumeric: 'tabular-nums' }}>
                         {isCash ? '-' : isLoading ? <span style={{ color: '#8b949e' }}>...</span> : fmtKrw(h.current_price_krw)}
                       </td>
-                      <td style={{ padding: '10px 16px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                      <td style={{ padding: '9px 14px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                         {fmtKrw(h.market_value_krw)}
                       </td>
-                      <td style={{ padding: '10px 16px', textAlign: 'right', color: isCash ? '#8b949e' : profitColor, fontVariantNumeric: 'tabular-nums' }}>
+                      <td style={{ padding: '9px 14px', textAlign: 'right', color: isCash ? '#8b949e' : profitColor, fontVariantNumeric: 'tabular-nums' }}>
                         {isCash ? '-' : (h.profit_krw >= 0 ? '+' : '') + fmtKrw(h.profit_krw)}
                       </td>
-                      <td style={{ padding: '10px 16px', textAlign: 'right', color: isCash ? '#8b949e' : profitColor, fontVariantNumeric: 'tabular-nums' }}>
+                      <td style={{ padding: '9px 14px', textAlign: 'right', color: isCash ? '#8b949e' : profitColor, fontVariantNumeric: 'tabular-nums' }}>
                         {isCash ? '-' : fmtSign(h.profit_pct)}
                       </td>
-                      <td style={{ padding: '10px 16px', textAlign: 'right', color: '#8b949e', fontVariantNumeric: 'tabular-nums' }}>
+                      <td style={{ padding: '9px 14px', textAlign: 'right', color: '#8b949e', fontVariantNumeric: 'tabular-nums' }}>
                         {weight.toFixed(1)}%
                       </td>
                     </tr>

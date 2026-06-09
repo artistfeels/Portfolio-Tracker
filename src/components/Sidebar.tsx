@@ -1,4 +1,3 @@
-// src/components/Sidebar.tsx
 import type { Page } from '../lib/types';
 
 interface Props {
@@ -15,37 +14,41 @@ const items: { page: Page; icon: string; label: string }[] = [
 export default function Sidebar({ current, onNavigate }: Props) {
   return (
     <nav style={{
-      width: 140,
+      width: 56,
       background: '#010409',
       borderRight: '1px solid #21262d',
-      padding: '24px 0',
+      padding: '16px 0',
       flexShrink: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: 4,
     }}>
-      <div style={{ padding: '0 16px 24px', fontSize: 13, fontWeight: 700, color: '#e6edf3' }}>
-        Portfolio
+      <div style={{ fontSize: 9, fontWeight: 700, color: '#58a6ff', letterSpacing: 0.5, marginBottom: 12, textAlign: 'center' }}>
+        PT
       </div>
       {items.map(({ page, icon, label }) => (
         <button
           key={page}
           aria-current={current === page ? 'page' : undefined}
           onClick={() => onNavigate(page)}
+          title={label}
           style={{
+            width: 40,
+            height: 40,
             display: 'flex',
             alignItems: 'center',
-            gap: 8,
-            width: '100%',
-            padding: '10px 16px',
+            justifyContent: 'center',
             background: current === page ? '#21262d' : 'transparent',
             border: 'none',
-            borderLeft: current === page ? '2px solid #58a6ff' : '2px solid transparent',
+            borderRadius: 8,
             color: current === page ? '#e6edf3' : '#8b949e',
-            fontSize: 13,
+            fontSize: 18,
             cursor: 'pointer',
-            textAlign: 'left',
+            outline: current === page ? '1px solid #30363d' : 'none',
           }}
         >
-          <span aria-hidden="true">{icon}</span>
-          <span>{label}</span>
+          <span aria-label={label}>{icon}</span>
         </button>
       ))}
     </nav>
