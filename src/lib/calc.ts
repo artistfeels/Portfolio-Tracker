@@ -146,3 +146,54 @@ export function calcHoldingIrrs(
       };
     });
 }
+
+export interface RiskRatios {
+  sharpe: number | null;
+  sortino: number | null;
+  treynor: number | null;
+  beta: number | null;
+}
+
+function mean(arr: number[]): number {
+  return arr.reduce((s, v) => s + v, 0) / arr.length;
+}
+
+function sampleVar(arr: number[]): number {
+  const m = mean(arr);
+  return arr.reduce((s, v) => s + (v - m) ** 2, 0) / (arr.length - 1);
+}
+
+function sampleCov(a: number[], b: number[]): number {
+  const ma = mean(a), mb = mean(b);
+  return a.reduce((s, v, i) => s + (v - ma) * (b[i] - mb), 0) / (a.length - 1);
+}
+
+export function calcRiskRatios(
+  portfolioReturns: number[],
+  marketReturns: number[],
+  rfAnnual: number
+): RiskRatios {
+  if (portfolioReturns.length < 4 || marketReturns.length < 4) {
+    return { sharpe: null, sortino: null, treynor: null, beta: null };
+  }
+
+  const n = portfolioReturns.length;
+  const rfWeekly = rfAnnual / 52;
+  const R_p_ann = mean(portfolioReturns) * 52;
+  const σ_p_ann = Math.sqrt(sampleVar(portfolioReturns)) * Math.sqrt(52);
+
+  const downsideVariance =
+    portfolioReturns.reduce((s, r) => s + Math.min(r - rfWeekly, 0) ** 2, 0) / n;
+  const σ_d_ann = Math.sqrt(downsideVariance) * Math.sqrt(52);
+
+  const varM = sampleVar(marketReturns);
+  const beta = varM > 1e-12 ? sampleCov(portfolioReturns, marketReturns) / varM : null;
+  const excess = R_p_ann - rfAnnual;
+
+  return {
+    sharpe: σ_p_ann > 1e-12 ? excess / σ_p_ann : null,
+    sortino: σ_d_ann > 1e-12 ? excess / σ_d_ann : null,
+    treynor: beta !== null && Math.abs(beta) > 0.001 ? excess / beta : null,
+    beta,
+  };
+}

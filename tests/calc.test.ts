@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calcIrr, calcPortfolioIrr, calcHoldingIrrs } from '../src/lib/calc';
+import { calcIrr, calcPortfolioIrr, calcHoldingIrrs, calcRiskRatios } from '../src/lib/calc';
 import type { Transaction, HoldingWithPrice } from '../src/lib/types';
 
 describe('calcIrr', () => {
@@ -66,5 +66,47 @@ describe('calcHoldingIrrs', () => {
     expect(results[0].irr!).toBeGreaterThan(0);
     expect(results[0].invested_krw).toBe(1000000);
     expect(results[0].current_value_krw).toBe(1500000);
+  });
+});
+
+describe('calcRiskRatios', () => {
+  const rets = [0.02, -0.01, 0.03, -0.01, 0.01];
+
+  it('beta = 1 when portfolio returns === market returns', () => {
+    const r = calcRiskRatios(rets, rets, 0);
+    expect(r.beta).toBeCloseTo(1.0, 5);
+  });
+
+  it('Treynor = annualized excess return / 1 when beta = 1, rf = 0', () => {
+    const r = calcRiskRatios(rets, rets, 0);
+    expect(r.treynor).toBeCloseTo(0.416, 3);
+  });
+
+  it('Sharpe uses sample std annualized', () => {
+    const r = calcRiskRatios(rets, rets, 0);
+    expect(r.sharpe).toBeCloseTo(3.22, 1);
+  });
+
+  it('Sortino uses population downside variance over all n observations', () => {
+    const r = calcRiskRatios(rets, rets, 0);
+    expect(r.sortino).toBeCloseTo(9.1, 0);
+  });
+
+  it('returns all-null when fewer than 4 data points', () => {
+    const r = calcRiskRatios([0.01, 0.02], [0.01, 0.02], 0.05);
+    expect(r).toEqual({ sharpe: null, sortino: null, treynor: null, beta: null });
+  });
+
+  it('returns Treynor null when market has zero variance', () => {
+    const flat = [0.01, 0.01, 0.01, 0.01, 0.01];
+    const r = calcRiskRatios(rets, flat, 0);
+    expect(r.treynor).toBeNull();
+    expect(r.beta).toBeNull();
+  });
+
+  it('Sortino null when no observations fall below rfWeekly', () => {
+    const highRets = [0.05, 0.06, 0.07, 0.08, 0.09];
+    const r = calcRiskRatios(highRets, highRets, 0);
+    expect(r.sortino).toBeNull();
   });
 });
