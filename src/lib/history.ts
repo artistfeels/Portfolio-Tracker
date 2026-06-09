@@ -29,7 +29,7 @@ export function calcInvestedAtDate(transactions: Transaction[], date: string): n
 }
 
 function toYahooHistSym(ticker: string): string {
-  if (ticker === 'GOLD') return 'XAUUSD=X';
+  if (ticker === 'GOLD') return 'GC=F';
   if (/^\d{6}$/.test(ticker)) {
     const suffix = KR_TICKER_SUFFIX[ticker] ?? 'KS';
     return `${ticker}.${suffix}`;
@@ -52,9 +52,13 @@ async function fetchWeeklyCloses(
 ): Promise<WeeklyClose[]> {
   const sym = toYahooHistSym(ticker);
   try {
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 10000);
     const res = await fetch(
-      `/api/yahoo/v8/finance/chart/${encodeURIComponent(sym)}?interval=1wk&period1=${period1}&period2=${period2}`
+      `/api/yahoo/v8/finance/chart/${encodeURIComponent(sym)}?interval=1wk&period1=${period1}&period2=${period2}`,
+      { signal: ctrl.signal }
     );
+    clearTimeout(tid);
     const j = await res.json();
     const result = j?.chart?.result?.[0];
     if (!result) return [];
@@ -110,12 +114,13 @@ export async function buildPortfolioHistory(
   const tickers = [...new Set(sorted.map((t) => t.ticker).filter((t) => t !== 'CASH'))];
 
   const closeMap = new Map<string, WeeklyClose[]>();
-  await Promise.all(
-    tickers.map(async (ticker) => {
+  for (let i = 0; i < tickers.length; i += 4) {
+    const batch = tickers.slice(i, i + 4);
+    await Promise.all(batch.map(async (ticker) => {
       const closes = await fetchWeeklyCloses(ticker, period1, period2, usdKrw);
       closeMap.set(ticker, closes);
-    })
-  );
+    }));
+  }
 
   const weeks: string[] = [];
   const cur = new Date(firstDate);

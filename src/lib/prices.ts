@@ -73,9 +73,9 @@ export async function fetchPrice(ticker: string, usdKrwRate: number): Promise<Pr
   let source: PriceResult['source'] = 'manual';
 
   if (ticker === 'GOLD') {
-    const { price: xauUsd, name } = await fetchYahoo('XAUUSD=X');
-    if (xauUsd) {
-      price_krw = Math.round((xauUsd * usdKrwRate) / TROY_OZ_TO_GRAM);
+    const { price: gcUsd, name } = await fetchYahoo('GC=F');
+    if (gcUsd) {
+      price_krw = Math.round((gcUsd * usdKrwRate) / TROY_OZ_TO_GRAM);
       display_name = name ?? '금 현물';
     }
     source = 'yahoo';
@@ -121,7 +121,7 @@ export async function fetchAllPrices(
     const r = await fetchPrice(tickers[i], usdKrwRate);
     result.set(tickers[i], r);
     onProgress?.(i + 1, tickers.length);
-    if (i < tickers.length - 1) await new Promise((res) => setTimeout(res, 200));
+    if (i < tickers.length - 1 && r.source !== 'cache') await new Promise((res) => setTimeout(res, 200));
   }
   return result;
 }
