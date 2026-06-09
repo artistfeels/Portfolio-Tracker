@@ -1,7 +1,8 @@
 // src/hooks/useAnalytics.ts
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { calcHoldings, calcSummary, calcPortfolioIrr, calcHoldingIrrs } from '../lib/calc';
+import { calcHoldings, calcSummary, calcPortfolioIrr, calcHoldingIrrs, calcRiskRatios } from '../lib/calc';
+import { fetchSofr, fetchSpxWeekly } from '../lib/market';
 import { fetchAllPrices, fetchUsdKrw } from '../lib/prices';
 import { buildPortfolioHistory } from '../lib/history';
 import type { Transaction, HoldingWithPrice, HistoryPoint, IrrResult } from '../lib/types';
@@ -13,6 +14,10 @@ export interface AnalyticsSummary {
   annualReturn: number | null;
   mdd: number | null;
   holdingYears: number;
+  sharpe: number | null;
+  sortino: number | null;
+  treynor: number | null;
+  beta: number | null;
 }
 
 function calcAnnualReturn(totalValue: number, totalPrincipal: number, firstDate: string): number | null {
@@ -33,12 +38,25 @@ function calcMdd(history: HistoryPoint[]): number | null {
   return mdd;
 }
 
+function lookupSpx(
+  closes: { date: string; close: number }[],
+  date: string
+): number | null {
+  let best: { date: string; close: number } | null = null;
+  for (const c of closes) {
+    if (c.date <= date) best = c;
+    else break;
+  }
+  return best?.close ?? null;
+}
+
 export function useAnalytics() {
   const [status, setStatus] = useState<AnalyticsStatus>('idle');
   const [history, setHistory] = useState<HistoryPoint[]>([]);
   const [holdings, setHoldings] = useState<HoldingWithPrice[]>([]);
   const [summary, setSummary] = useState<AnalyticsSummary>({
     portfolioIrr: null, annualReturn: null, mdd: null, holdingYears: 0,
+    sharpe: null, sortino: null, treynor: null, beta: null,
   });
   const [holdingIrrs, setHoldingIrrs] = useState<IrrResult[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -82,15 +100,42 @@ export function useAnalytics() {
         const firstDate = txs[0].trade_date;
         const years = (Date.now() - new Date(firstDate).getTime()) / (365.25 * 24 * 3600 * 1000);
 
-        const hist = await buildPortfolioHistory(txs, usdKrw);
+        const period1 = Math.floor(new Date(txs[0].trade_date).getTime() / 1000);
+        const period2 = Math.floor(Date.now() / 1000);
+
+        const [hist, rfAnnual, spxCloses] = await Promise.all([
+          buildPortfolioHistory(txs, usdKrw),
+          fetchSofr(period1, period2),
+          fetchSpxWeekly(period1, period2),
+        ]);
         if (cancelled) return;
         setHistory(hist);
+
+        const portfolioReturns: number[] = [];
+        const marketReturns: number[] = [];
+        for (let i = 1; i < hist.length; i++) {
+          const prev = hist[i - 1];
+          const curr = hist[i];
+          if (prev.value_krw <= 0) continue;
+          const pr = (curr.value_krw - prev.value_krw) / prev.value_krw;
+          const spxPrev = lookupSpx(spxCloses, prev.date);
+          const spxCurr = lookupSpx(spxCloses, curr.date);
+          if (spxPrev && spxCurr && spxPrev > 0) {
+            portfolioReturns.push(pr);
+            marketReturns.push((spxCurr - spxPrev) / spxPrev);
+          }
+        }
+        const ratios = calcRiskRatios(portfolioReturns, marketReturns, rfAnnual);
 
         setSummary({
           portfolioIrr: calcPortfolioIrr(txs, withPrices),
           annualReturn: calcAnnualReturn(s.totalValue, s.totalPrincipal, firstDate),
           mdd: calcMdd(hist),
           holdingYears: Math.round(years * 10) / 10,
+          sharpe: ratios.sharpe,
+          sortino: ratios.sortino,
+          treynor: ratios.treynor,
+          beta: ratios.beta,
         });
         setHoldingIrrs(calcHoldingIrrs(txs, withPrices));
         setStatus('done');
