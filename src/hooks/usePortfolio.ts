@@ -16,6 +16,7 @@ export function usePortfolio() {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const loadingRef = useRef(false);
+  const usdKrwRef = useRef(0);
 
   const load = useCallback(async (silent = false) => {
     if (loadingRef.current) return;
@@ -53,16 +54,22 @@ export function usePortfolio() {
         setStatus('done'); // Table is visible NOW, prices fill in below
       }
 
-      // 3. Fetch rate + cash balance in parallel (background from user perspective)
+      // 3. Fetch rate + cash in parallel
       const [rate, cashResult] = await Promise.all([
         fetchUsdKrw(),
-        supabase.from('cash_balance').select('amount_krw'),
+        supabase.from('cash_balance').select('amount_krw').eq('id', 1).maybeSingle(),
       ]);
       setUsdKrw(rate);
+      usdKrwRef.current = rate;
 
-      const cashBalance = cashResult.data
-        ? (cashResult.data as { amount_krw: number }[]).reduce((s, r) => s + (r.amount_krw ?? 0), 0)
-        : 0;
+      // Supabase primary, localStorage fallback (cross-device sync works once table exists)
+      const cashFromSupabase = cashResult.data?.amount_krw;
+      const cashBalance = cashFromSupabase != null
+        ? Number(cashFromSupabase)
+        : Number(localStorage.getItem('portfolio_cash_krw') ?? '0');
+      if (cashFromSupabase != null) {
+        localStorage.setItem('portfolio_cash_krw', String(cashFromSupabase));
+      }
 
       const cashEntry: HoldingWithPrice = {
         ticker: 'CASH',
@@ -129,18 +136,14 @@ export function usePortfolio() {
         }
       }
 
-      // 5. Final: sync cash, remove sold-off tickers, sort by market value
+      // 5. Final: sync cash, remove sold-off tickers, sort by market value (CASH always included)
       const activeTickers = new Set(rawHoldings.map(h => h.ticker));
       setHoldings(prev => {
         let updated = prev.filter(h => h.ticker === 'CASH' || activeTickers.has(h.ticker));
-        if (cashBalance > 0) {
-          const hasCash = updated.some(h => h.ticker === 'CASH');
-          updated = hasCash
-            ? updated.map(h => h.ticker === 'CASH' ? cashEntry : h)
-            : [...updated, cashEntry];
-        } else {
-          updated = updated.filter(h => h.ticker !== 'CASH');
-        }
+        const hasCash = updated.some(h => h.ticker === 'CASH');
+        updated = hasCash
+          ? updated.map(h => h.ticker === 'CASH' ? cashEntry : h)
+          : [...updated, cashEntry];
         const sorted = [...updated].sort((a, b) => b.market_value_krw - a.market_value_krw);
         setSummary(calcSummary(sorted));
         return sorted;
@@ -156,6 +159,28 @@ export function usePortfolio() {
     }
   }, []);
 
+  const updateCash = useCallback((amount: number) => {
+    // localStorage: immediate, works offline / before Supabase table is created
+    localStorage.setItem('portfolio_cash_krw', String(amount));
+    // Supabase: cross-device sync (upsert silently fails if table doesn't exist yet)
+    supabase.from('cash_balance').upsert({ id: 1, amount_krw: amount }).then(() => {});
+
+    const cashEntry: HoldingWithPrice = {
+      ticker: 'CASH', name: '현금 (KRW)', shares: amount,
+      avg_price_krw: 1, total_principal_krw: amount,
+      current_price_krw: 1, market_value_krw: amount,
+      profit_krw: 0, profit_pct: 0,
+      sector: null, region: '한국', asset_group: '현금',
+      price_source: '-', daily_change_pct: null, prev_close_krw: 1,
+    };
+    setHoldings(prev => {
+      const withoutCash = prev.filter(h => h.ticker !== 'CASH');
+      const updated = [...withoutCash, cashEntry].sort((a, b) => b.market_value_krw - a.market_value_krw);
+      setSummary(calcSummary(updated));
+      return updated;
+    });
+  }, []);
+
   useEffect(() => { load(); }, [load]);
 
   // 30-second polling for price refresh (silent, no loading state)
@@ -164,5 +189,5 @@ export function usePortfolio() {
     return () => clearInterval(id);
   }, [load]);
 
-  return { transactions, holdings, summary, usdKrw, status, isRefreshing, error, lastUpdated, reload: load };
+  return { transactions, holdings, summary, usdKrw, status, isRefreshing, error, lastUpdated, reload: load, updateCash };
 }

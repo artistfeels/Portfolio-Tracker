@@ -1,4 +1,5 @@
 import type { Page } from '../lib/types';
+import { supabase } from '../lib/supabaseClient';
 
 interface Props {
   current: Page;
@@ -7,7 +8,6 @@ interface Props {
 
 const items: { page: Page; icon: string; label: string }[] = [
   { page: 'dashboard',    icon: '📊', label: '대시보드' },
-  { page: 'analytics',   icon: '📈', label: '애널리틱스' },
   { page: 'transactions', icon: '📄', label: '거래내역' },
 ];
 
@@ -51,6 +51,20 @@ export default function Sidebar({ current, onNavigate }: Props) {
           <span aria-label={label}>{icon}</span>
         </button>
       ))}
+      <div style={{ flex: 1 }} />
+      <button
+        onClick={() => supabase.auth.signOut()}
+        title="로그아웃"
+        style={{
+          width: 40, height: 40,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'transparent', border: 'none', borderRadius: 8,
+          color: '#8b949e', fontSize: 16, cursor: 'pointer',
+          marginBottom: 4,
+        }}
+      >
+        <span aria-label="로그아웃">↩</span>
+      </button>
     </nav>
   );
 }

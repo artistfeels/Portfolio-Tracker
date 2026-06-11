@@ -39,7 +39,7 @@ describe('calcPortfolioIrr', () => {
       { ticker: 'AAPL', name: 'Apple', shares: 10, avg_price_krw: 100000,
         total_principal_krw: 1000000, current_price_krw: 150000, market_value_krw: 1500000,
         profit_krw: 500000, profit_pct: 50, sector: null, region: '해외',
-        asset_group: null, price_source: 'yahoo' },
+        asset_group: null, price_source: 'yahoo', daily_change_pct: null, prev_close_krw: 0 },
     ];
     const irr = calcPortfolioIrr(txs, holdings);
     expect(irr).not.toBeNull();
@@ -57,7 +57,7 @@ describe('calcHoldingIrrs', () => {
       { ticker: 'AAPL', name: 'Apple', shares: 10, avg_price_krw: 100000,
         total_principal_krw: 1000000, current_price_krw: 150000, market_value_krw: 1500000,
         profit_krw: 500000, profit_pct: 50, sector: null, region: '해외',
-        asset_group: null, price_source: 'yahoo' },
+        asset_group: null, price_source: 'yahoo', daily_change_pct: null, prev_close_krw: 0 },
     ];
     const results = calcHoldingIrrs(txs, holdings);
     expect(results).toHaveLength(1);

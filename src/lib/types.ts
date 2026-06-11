@@ -1,4 +1,4 @@
-export type Page = 'dashboard' | 'analytics' | 'transactions';
+export type Page = 'dashboard' | 'transactions';
 
 export interface Transaction {
   id: string;
