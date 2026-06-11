@@ -15,6 +15,14 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/fred/, ''),
       },
+      '/api/naver': {
+        target: 'https://polling.finance.naver.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/naver/, ''),
+        headers: {
+          Referer: 'https://finance.naver.com/',
+        },
+      },
     },
   },
 });

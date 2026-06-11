@@ -68,7 +68,7 @@ export default function Dashboard({ portfolio }: Props) {
     return sum + h.prev_close_krw * h.shares;
   }, 0);
   const dailyPnlPct = prevDayTotal > 0 ? (dailyPnl / prevDayTotal) * 100 : null;
-  const dailyColor = dailyPnl >= 0 ? '#cf222e' : '#1f6feb';
+  const dailyColor = dailyPnl >= 0 ? 'var(--up)' : 'var(--down)';
   const hasDailyData = prevDayTotal > 0;
 
   // ── 오늘의 움직임 ───────────────────────────────────
@@ -86,12 +86,12 @@ export default function Dashboard({ portfolio }: Props) {
     {
       label: '한국 주식',
       value: holdings.filter(h => h.region === '한국' && h.ticker !== 'CASH').reduce((s, h) => s + h.market_value_krw, 0),
-      color: '#cf222e',
+      color: 'var(--up)',
     },
     {
       label: '해외 주식',
       value: holdings.filter(h => h.region === '해외' && h.ticker !== 'GOLD').reduce((s, h) => s + h.market_value_krw, 0),
-      color: '#1f6feb',
+      color: 'var(--down)',
     },
     {
       label: '금',
@@ -155,7 +155,7 @@ export default function Dashboard({ portfolio }: Props) {
       style={{ padding: '10px 14px', textAlign: left ? 'left' : 'right', fontWeight: 500, whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' }}
     >
       {label}{' '}
-      <span style={{ fontSize: 9, color: sortKey === k ? '#58a6ff' : '#8b949e' }}>
+      <span style={{ fontSize: 9, color: sortKey === k ? 'var(--accent)' : 'var(--text-secondary)' }}>
         {sortKey === k ? (sortDir === 'desc' ? '▼' : '▲') : '⇅'}
       </span>
     </th>
@@ -163,11 +163,11 @@ export default function Dashboard({ portfolio }: Props) {
 
   if (status === 'error') {
     return (
-      <div style={{ padding: 48, color: '#cf222e' }}>
+      <div style={{ padding: 48, color: 'var(--up)' }}>
         <p style={{ marginBottom: 12 }}>오류: {error}</p>
         <button
           onClick={() => reload()}
-          style={{ background: '#21262d', border: '1px solid #30363d', color: '#e6edf3', padding: '8px 16px', borderRadius: 6, cursor: 'pointer' }}
+          style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', padding: '8px 16px', borderRadius: 6, cursor: 'pointer' }}
         >
           다시 시도
         </button>
@@ -177,7 +177,7 @@ export default function Dashboard({ portfolio }: Props) {
 
   if (status === 'loading') {
     return (
-      <div style={{ padding: 48, color: '#8b949e', fontSize: 14 }}>
+      <div style={{ padding: 48, color: 'var(--text-secondary)', fontSize: 14 }}>
         포트폴리오 불러오는 중...
       </div>
     );
@@ -205,18 +205,18 @@ export default function Dashboard({ portfolio }: Props) {
                 )}
               </>
             ) : (
-              <span style={{ color: '#8b949e', fontSize: 13 }}>시세 로딩 중...</span>
+              <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>시세 로딩 중...</span>
             )}
           </div>
         </div>
 
-        <div style={{ textAlign: 'right', fontSize: 12, color: '#8b949e', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+        <div style={{ textAlign: 'right', fontSize: 12, color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {isRefreshing && <span style={{ color: '#1f6feb', fontSize: 11 }}>● 업데이트 중</span>}
+            {isRefreshing && <span style={{ color: 'var(--down)', fontSize: 11 }}>● 업데이트 중</span>}
             {lastUpdated && !isRefreshing && <span>{timeSince(lastUpdated)} 업데이트</span>}
             <button
               onClick={() => reload()}
-              style={{ background: '#21262d', border: '1px solid #30363d', color: '#e6edf3', padding: '5px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}
+              style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', padding: '5px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}
             >
               새로고침
             </button>
@@ -228,32 +228,32 @@ export default function Dashboard({ portfolio }: Props) {
       {/* ── 요약 카드 6개 ─────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10, marginBottom: 16 }}>
         {[
-          { label: '투자원금', value: fmtKrw(summary.totalPrincipal), color: '#e6edf3' },
+          { label: '투자원금', value: fmtKrw(summary.totalPrincipal), color: 'var(--text-primary)' },
           {
             label: '일간 손익',
             value: hasDailyData ? (dailyPnl >= 0 ? '+' : '') + fmtKrw(Math.round(dailyPnl)) : '-',
             sub: hasDailyData && dailyPnlPct !== null ? fmtSign(dailyPnlPct) : undefined,
-            color: hasDailyData ? dailyColor : '#8b949e',
+            color: hasDailyData ? dailyColor : 'var(--text-secondary)',
           },
           {
             label: '누적 손익',
             value: (summary.totalProfit >= 0 ? '+' : '') + fmtKrw(summary.totalProfit),
-            color: summary.totalProfit >= 0 ? '#cf222e' : '#1f6feb',
+            color: summary.totalProfit >= 0 ? 'var(--up)' : 'var(--down)',
           },
           {
             label: '수익률',
             value: fmtSign(summary.profitPct),
-            color: summary.profitPct >= 0 ? '#cf222e' : '#1f6feb',
+            color: summary.profitPct >= 0 ? 'var(--up)' : 'var(--down)',
           },
           {
             label: '포트폴리오 IRR',
             value: portfolioIrr !== null ? fmtSign(portfolioIrr * 100) : '-',
             sub: firstDate ? fmtYears(investmentYears) : undefined,
-            color: portfolioIrr !== null ? (portfolioIrr >= 0 ? '#cf222e' : '#1f6feb') : '#8b949e',
+            color: portfolioIrr !== null ? (portfolioIrr >= 0 ? 'var(--up)' : 'var(--down)') : 'var(--text-secondary)',
           },
         ].map((c) => (
-          <div key={c.label} style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, padding: '12px 16px' }}>
-            <div style={{ fontSize: 12, color: '#8b949e', marginBottom: 5 }}>{c.label}</div>
+          <div key={c.label} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: '12px 16px' }}>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 5 }}>{c.label}</div>
             <div style={{ fontSize: 19, fontWeight: 700, color: c.color, whiteSpace: 'nowrap' }}>{c.value}</div>
             {'sub' in c && c.sub && (
               <div style={{ fontSize: 13, color: c.color, marginTop: 2 }}>{c.sub}</div>
@@ -264,8 +264,8 @@ export default function Dashboard({ portfolio }: Props) {
         {(() => {
           const cashVal = holdings.find(h => h.ticker === 'CASH')?.market_value_krw ?? 0;
           return (
-            <div style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, padding: '12px 16px' }}>
-              <div style={{ fontSize: 12, color: '#8b949e', marginBottom: 5 }}>현금</div>
+            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: '12px 16px' }}>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 5 }}>현금</div>
               {editingCash ? (
                 <input
                   autoFocus
@@ -281,13 +281,13 @@ export default function Dashboard({ portfolio }: Props) {
                     if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                     if (e.key === 'Escape') setEditingCash(false);
                   }}
-                  style={{ width: '100%', background: '#21262d', border: '1px solid #58a6ff', borderRadius: 4, color: '#e6edf3', padding: '4px 6px', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
+                  style={{ width: '100%', background: 'var(--bg-tertiary)', border: '1px solid var(--accent)', borderRadius: 4, color: 'var(--text-primary)', padding: '4px 6px', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
                 />
               ) : (
                 <div
                   onClick={() => { setCashInput(cashVal.toString()); setEditingCash(true); }}
                   title="클릭해서 편집"
-                  style={{ fontSize: 19, fontWeight: 700, color: '#3fb950', whiteSpace: 'nowrap', cursor: 'text', borderBottom: '1px dashed #30363d', display: 'inline-block' }}
+                  style={{ fontSize: 19, fontWeight: 700, color: '#3fb950', whiteSpace: 'nowrap', cursor: 'text', borderBottom: '1px dashed var(--border-primary)', display: 'inline-block' }}
                 >
                   {fmtKrw(cashVal)}
                 </div>
@@ -305,7 +305,7 @@ export default function Dashboard({ portfolio }: Props) {
         }
       />
       {selectedMarket && (
-        <div style={{ marginBottom: 16, background: '#161b22', border: '1px solid #30363d', borderRadius: 8, overflow: 'hidden' }}>
+        <div style={{ marginBottom: 16, background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, overflow: 'hidden' }}>
           <ChartPanel ticker={selectedMarket.sym} name={selectedMarket.label} />
         </div>
       )}
@@ -315,18 +315,18 @@ export default function Dashboard({ portfolio }: Props) {
 
         {/* 자산 구성 */}
         {assetGroups.length > 0 && (
-          <div style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, padding: '12px 16px' }}>
-            <div style={{ fontSize: 11, color: '#8b949e', marginBottom: 10 }}>자산 구성</div>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: '12px 16px' }}>
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 10 }}>자산 구성</div>
             {assetGroups.map(g => {
               const pct = assetTotal > 0 ? g.value / assetTotal * 100 : 0;
               return (
                 <div key={g.label} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
-                  <div style={{ width: 70, fontSize: 11, color: '#8b949e', flexShrink: 0, textAlign: 'right' }}>{g.label}</div>
-                  <div style={{ flex: 1, height: 14, background: '#21262d', borderRadius: 3, overflow: 'hidden' }}>
+                  <div style={{ width: 70, fontSize: 11, color: 'var(--text-secondary)', flexShrink: 0, textAlign: 'right' }}>{g.label}</div>
+                  <div style={{ flex: 1, height: 14, background: 'var(--bg-tertiary)', borderRadius: 3, overflow: 'hidden' }}>
                     <div style={{ width: `${pct}%`, height: '100%', background: g.color, borderRadius: 3, transition: 'width 0.5s' }} />
                   </div>
                   <div style={{ width: 38, fontSize: 11, color: g.color, textAlign: 'right', flexShrink: 0 }}>{pct.toFixed(1)}%</div>
-                  <div style={{ width: 100, fontSize: 11, color: '#e6edf3', textAlign: 'right', flexShrink: 0, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                  <div style={{ width: 100, fontSize: 11, color: 'var(--text-primary)', textAlign: 'right', flexShrink: 0, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
                     {(g.value / 1_0000).toFixed(0)}만원
                   </div>
                 </div>
@@ -338,31 +338,31 @@ export default function Dashboard({ portfolio }: Props) {
         {/* 오늘의 움직임 */}
         {showMovers && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, padding: '12px 16px' }}>
-              <div style={{ fontSize: 11, color: '#8b949e', marginBottom: 8 }}>상승 상위</div>
+            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: '12px 16px' }}>
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 8 }}>상승 상위</div>
               {gainers.length === 0
-                ? <div style={{ fontSize: 12, color: '#8b949e' }}>없음</div>
+                ? <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>없음</div>
                 : gainers.map(h => (
                   <div key={h.ticker} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
                     <span style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 80 }}>{h.name}</span>
                     <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 4 }}>
-                      <span style={{ fontSize: 13, color: '#cf222e', fontWeight: 600 }}>{fmtSign(h.daily_change_pct ?? 0, 2)}</span>
-                      <div style={{ fontSize: 10, color: '#cf222e' }}>+{Math.round(h.dailyPnl / 10000)}만원</div>
+                      <span style={{ fontSize: 13, color: 'var(--up)', fontWeight: 600 }}>{fmtSign(h.daily_change_pct ?? 0, 2)}</span>
+                      <div style={{ fontSize: 10, color: 'var(--up)' }}>+{Math.round(h.dailyPnl / 10000)}만원</div>
                     </div>
                   </div>
                 ))
               }
             </div>
-            <div style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, padding: '12px 16px' }}>
-              <div style={{ fontSize: 11, color: '#8b949e', marginBottom: 8 }}>하락 상위</div>
+            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: '12px 16px' }}>
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 8 }}>하락 상위</div>
               {losers.length === 0
-                ? <div style={{ fontSize: 12, color: '#8b949e' }}>없음</div>
+                ? <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>없음</div>
                 : losers.map(h => (
                   <div key={h.ticker} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
                     <span style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 80 }}>{h.name}</span>
                     <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 4 }}>
-                      <span style={{ fontSize: 13, color: '#1f6feb', fontWeight: 600 }}>{fmtSign(h.daily_change_pct ?? 0, 2)}</span>
-                      <div style={{ fontSize: 10, color: '#1f6feb' }}>{Math.round(h.dailyPnl / 10000)}만원</div>
+                      <span style={{ fontSize: 13, color: 'var(--down)', fontWeight: 600 }}>{fmtSign(h.daily_change_pct ?? 0, 2)}</span>
+                      <div style={{ fontSize: 10, color: 'var(--down)' }}>{Math.round(h.dailyPnl / 10000)}만원</div>
                     </div>
                   </div>
                 ))
@@ -373,7 +373,7 @@ export default function Dashboard({ portfolio }: Props) {
       </div>
 
       {/* ── 시세 / 평가 탭 ────────────────────────────── */}
-      <div style={{ display: 'flex', borderBottom: '1px solid #30363d', marginBottom: 0 }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid var(--border-primary)', marginBottom: 0 }}>
         {(['시세', '평가'] as const).map(t => (
           <button
             key={t}
@@ -381,8 +381,8 @@ export default function Dashboard({ portfolio }: Props) {
             style={{
               background: 'transparent',
               border: 'none',
-              borderBottom: tab === t ? '2px solid #1f6feb' : '2px solid transparent',
-              color: tab === t ? '#e6edf3' : '#8b949e',
+              borderBottom: tab === t ? '2px solid var(--down)' : '2px solid transparent',
+              color: tab === t ? 'var(--text-primary)' : 'var(--text-secondary)',
               padding: '10px 20px',
               cursor: 'pointer',
               fontSize: 14,
@@ -396,11 +396,11 @@ export default function Dashboard({ portfolio }: Props) {
       </div>
 
       {/* ── 테이블 ────────────────────────────────────── */}
-      <div style={{ background: '#161b22', border: '1px solid #30363d', borderTop: 'none', borderRadius: '0 0 8px 8px', overflow: 'hidden' }}>
+      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderTop: 'none', borderRadius: '0 0 8px 8px', overflow: 'hidden' }}>
         {tab === '시세' ? (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
-              <tr style={{ background: '#21262d', color: '#8b949e', fontSize: 12 }}>
+              <tr style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', fontSize: 12 }}>
                 <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 500 }}>종목</th>
                 <th style={{ padding: '10px 14px', width: 120, fontWeight: 500 }}></th>
                 <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 500, whiteSpace: 'nowrap' }}>현재가</th>
@@ -415,7 +415,7 @@ export default function Dashboard({ portfolio }: Props) {
               {sortedHoldings.map((h, i) => {
                 const isLoading = h.price_source === 'loading';
                 const pct = h.daily_change_pct;
-                const pctColor = pct === null || isLoading ? '#8b949e' : pct >= 0 ? '#cf222e' : '#1f6feb';
+                const pctColor = pct === null || isLoading ? 'var(--text-secondary)' : pct >= 0 ? 'var(--up)' : 'var(--down)';
                 const krwChange = h.prev_close_krw > 0 ? h.current_price_krw - h.prev_close_krw : null;
                 const holdingDailyPnl = h.prev_close_krw > 0
                   ? (h.current_price_krw - h.prev_close_krw) * h.shares
@@ -428,20 +428,20 @@ export default function Dashboard({ portfolio }: Props) {
                     <tr
                       onClick={() => setSelectedTicker(isSelected ? null : h.ticker)}
                       style={{
-                        borderTop: '1px solid #21262d',
-                        background: isSelected ? '#1c2128' : i % 2 === 0 ? 'transparent' : '#0d1117',
+                        borderTop: '1px solid var(--bg-tertiary)',
+                        background: isSelected ? 'var(--bg-tertiary)' : i % 2 === 0 ? 'transparent' : 'var(--bg-primary)',
                         cursor: 'pointer',
                       }}
                     >
                       <td style={{ padding: '9px 14px', whiteSpace: 'nowrap' }}>
                         <div style={{ fontWeight: 600, fontSize: 14 }}>{h.name}</div>
-                        <div style={{ fontSize: 11, color: '#8b949e', marginTop: 1 }}>{h.ticker}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 1 }}>{h.ticker}</div>
                       </td>
                       <td style={{ padding: '4px 8px', width: 120 }}>
                         {!isLoading && <SparkLine ticker={h.ticker} />}
                       </td>
-                      <td style={{ padding: '9px 14px', textAlign: 'right', color: '#e6edf3', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
-                        {isLoading ? <span style={{ color: '#8b949e' }}>...</span> : nativePrice(h.ticker, h.current_price_krw, usdKrw)}
+                      <td style={{ padding: '9px 14px', textAlign: 'right', color: 'var(--text-primary)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                        {isLoading ? <span style={{ color: 'var(--text-secondary)' }}>...</span> : nativePrice(h.ticker, h.current_price_krw, usdKrw)}
                       </td>
                       <td style={{ padding: '9px 14px', textAlign: 'right', color: pctColor, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
                         {isLoading || krwChange === null ? '-' : nativeChange(h.ticker, krwChange, usdKrw)}
@@ -452,11 +452,11 @@ export default function Dashboard({ portfolio }: Props) {
                       <td style={{ padding: '9px 14px', textAlign: 'right', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
                         {fmtKrw(h.market_value_krw)}
                       </td>
-                      <td style={{ padding: '9px 14px', textAlign: 'right', color: holdingDailyPnl === null ? '#8b949e' : holdingDailyPnl >= 0 ? '#cf222e' : '#1f6feb', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                      <td style={{ padding: '9px 14px', textAlign: 'right', color: holdingDailyPnl === null ? 'var(--text-secondary)' : holdingDailyPnl >= 0 ? 'var(--up)' : 'var(--down)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
                         {isLoading || holdingDailyPnl === null ? '-'
                           : (holdingDailyPnl >= 0 ? '+' : '') + fmtKrw(Math.round(holdingDailyPnl))}
                       </td>
-                      <td style={{ padding: '9px 14px', textAlign: 'right', color: '#8b949e', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                      <td style={{ padding: '9px 14px', textAlign: 'right', color: 'var(--text-secondary)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
                         {weight.toFixed(1)}%
                       </td>
                     </tr>
@@ -475,7 +475,7 @@ export default function Dashboard({ portfolio }: Props) {
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
-              <tr style={{ background: '#21262d', color: '#8b949e', fontSize: 12 }}>
+              <tr style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', fontSize: 12 }}>
                 <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 500 }}>종목</th>
                 <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 500, whiteSpace: 'nowrap' }}>수량</th>
                 <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 500, whiteSpace: 'nowrap' }}>평균단가</th>
@@ -490,9 +490,9 @@ export default function Dashboard({ portfolio }: Props) {
             <tbody>
               {sortedHoldings.map((h, i) => {
                 const isLoading = h.price_source === 'loading';
-                const profitColor = h.profit_krw >= 0 ? '#cf222e' : '#1f6feb';
+                const profitColor = h.profit_krw >= 0 ? 'var(--up)' : 'var(--down)';
                 const holdingIrr = holdingIrrs.find(r => r.ticker === h.ticker)?.irr ?? null;
-                const irrColor = holdingIrr === null ? '#8b949e' : holdingIrr >= 0 ? '#cf222e' : '#1f6feb';
+                const irrColor = holdingIrr === null ? 'var(--text-secondary)' : holdingIrr >= 0 ? 'var(--up)' : 'var(--down)';
                 const weight = summary.totalValue > 0 ? (h.market_value_krw / summary.totalValue) * 100 : 0;
                 const isSelected = selectedTicker === h.ticker;
 
@@ -501,23 +501,23 @@ export default function Dashboard({ portfolio }: Props) {
                     <tr
                       onClick={() => setSelectedTicker(isSelected ? null : h.ticker)}
                       style={{
-                        borderTop: '1px solid #21262d',
-                        background: isSelected ? '#1c2128' : i % 2 === 0 ? 'transparent' : '#0d1117',
+                        borderTop: '1px solid var(--bg-tertiary)',
+                        background: isSelected ? 'var(--bg-tertiary)' : i % 2 === 0 ? 'transparent' : 'var(--bg-primary)',
                         cursor: 'pointer',
                       }}
                     >
                       <td style={{ padding: '9px 14px' }}>
                         <div style={{ fontWeight: 600, fontSize: 14 }}>{h.name}</div>
-                        <div style={{ fontSize: 11, color: '#8b949e', marginTop: 1 }}>{h.ticker}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 1 }}>{h.ticker}</div>
                       </td>
-                      <td style={{ padding: '9px 14px', textAlign: 'right', color: '#e6edf3', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                      <td style={{ padding: '9px 14px', textAlign: 'right', color: 'var(--text-primary)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
                         {h.shares.toLocaleString()}
                       </td>
-                      <td style={{ padding: '9px 14px', textAlign: 'right', color: '#e6edf3', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                      <td style={{ padding: '9px 14px', textAlign: 'right', color: 'var(--text-primary)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
                         {fmtKrw(h.avg_price_krw)}
                       </td>
-                      <td style={{ padding: '9px 14px', textAlign: 'right', color: '#e6edf3', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
-                        {isLoading ? <span style={{ color: '#8b949e' }}>...</span> : fmtKrw(h.current_price_krw)}
+                      <td style={{ padding: '9px 14px', textAlign: 'right', color: 'var(--text-primary)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                        {isLoading ? <span style={{ color: 'var(--text-secondary)' }}>...</span> : fmtKrw(h.current_price_krw)}
                       </td>
                       <td style={{ padding: '9px 14px', textAlign: 'right', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
                         {fmtKrw(h.market_value_krw)}
@@ -531,7 +531,7 @@ export default function Dashboard({ portfolio }: Props) {
                       <td style={{ padding: '9px 14px', textAlign: 'right', color: irrColor, fontWeight: 600, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
                         {isLoading ? '-' : holdingIrr !== null ? fmtSign(holdingIrr * 100) : '-'}
                       </td>
-                      <td style={{ padding: '9px 14px', textAlign: 'right', color: '#8b949e', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                      <td style={{ padding: '9px 14px', textAlign: 'right', color: 'var(--text-secondary)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
                         {weight.toFixed(1)}%
                       </td>
                     </tr>

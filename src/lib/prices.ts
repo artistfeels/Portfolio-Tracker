@@ -39,6 +39,7 @@ interface YahooResult {
   price: number | null;
   name?: string;
   prevClose: number | null;
+  source?: 'yahoo' | 'naver';
 }
 
 async function fetchYahoo(symbol: string): Promise<YahooResult> {
@@ -60,7 +61,55 @@ async function fetchYahoo(symbol: string): Promise<YahooResult> {
   }
 }
 
+interface NaverResult {
+  price: number | null;
+  name?: string;
+  prevClose: number | null;
+}
+
+// 네이버 파이낸스 실시간 시세 (한국 주식 .KS/.KQ). 종목코드 6자리.
+async function fetchNaver(code: string): Promise<NaverResult> {
+  try {
+    const res = await fetchWithTimeout(
+      `/api/naver/api/realtime?query=SERVICE_ITEM:${encodeURIComponent(code)}`
+    );
+    // Vite proxy는 raw bytes를 그대로 전달하므로 클라이언트에서도 인코딩 처리
+    const buffer = await res.arrayBuffer();
+    const ct = res.headers.get('content-type') ?? '';
+    const encoding = /euc-kr/i.test(ct) ? 'euc-kr' : 'utf-8';
+    let j: unknown;
+    try {
+      j = JSON.parse(new TextDecoder(encoding).decode(buffer));
+    } catch {
+      return { price: null, prevClose: null };
+    }
+    const data = (j as any)?.result?.areas?.[0]?.datas?.[0];
+    if (!data) return { price: null, prevClose: null };
+    const price = Number(data.sv);
+    const prevClose = Number(data.ov);
+    return {
+      price: isFinite(price) && price > 0 ? price : null,
+      name: typeof data.nm === 'string' ? data.nm : undefined,
+      prevClose: isFinite(prevClose) && prevClose > 0 ? prevClose : null,
+    };
+  } catch {
+    return { price: null, prevClose: null };
+  }
+}
+
 async function fetchKrStock(ticker: string): Promise<YahooResult> {
+  // 1순위: 네이버 파이낸스 실시간 시세
+  const naver = await fetchNaver(ticker);
+  if (naver.price) {
+    return {
+      price: Math.round(naver.price),
+      name: naver.name,
+      prevClose: naver.prevClose ? Math.round(naver.prevClose) : null,
+      source: 'naver',
+    };
+  }
+
+  // 폴백: Yahoo Finance (전일 종가 기준)
   const suffix = KR_TICKER_SUFFIX[ticker];
   if (suffix) {
     const r = await fetchYahoo(`${ticker}.${suffix}`);
@@ -115,8 +164,8 @@ export async function fetchPrice(ticker: string, usdKrwRate: number): Promise<Pr
       }
     }
   } else if (/^\d{6}$/.test(ticker)) {
-    const { price, name, prevClose } = await fetchKrStock(ticker);
-    source = 'yahoo';
+    const { price, name, prevClose, source: krSource } = await fetchKrStock(ticker);
+    source = krSource ?? 'yahoo';
     price_krw = price;
     display_name = name;
     if (price && prevClose) {

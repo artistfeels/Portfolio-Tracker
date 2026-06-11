@@ -24,8 +24,8 @@ export function calcHoldingsAtDate(
 
 export function calcInvestedAtDate(transactions: Transaction[], date: string): number {
   return transactions
-    .filter((t) => t.trade_date <= date && t.action === 'buy')
-    .reduce((s, t) => s + t.shares * t.price_krw, 0);
+    .filter((t) => t.trade_date <= date && (t.action === 'buy' || t.action === 'sell'))
+    .reduce((s, t) => s + (t.action === 'buy' ? 1 : -1) * t.shares * t.price_krw, 0);
 }
 
 function toYahooHistSym(ticker: string): string {
@@ -53,9 +53,9 @@ async function fetchWeeklyCloses(
   const sym = toYahooHistSym(ticker);
   try {
     const ctrl = new AbortController();
-    const tid = setTimeout(() => ctrl.abort(), 10000);
+    const tid = setTimeout(() => ctrl.abort(), 12000);
     const res = await fetch(
-      `/api/yahoo/v8/finance/chart/${encodeURIComponent(sym)}?interval=1wk&period1=${period1}&period2=${period2}`,
+      `/api/yahoo/v8/finance/chart/${encodeURIComponent(sym)}?interval=1mo&period1=${period1}&period2=${period2}`,
       { signal: ctrl.signal }
     );
     clearTimeout(tid);
@@ -100,41 +100,53 @@ function lookupClose(closes: WeeklyClose[], date: string): number | null {
   return best?.closeKrw ?? null;
 }
 
+/** 월간 히스토리 빌드. maxYears 기본 3년 캡. */
 export async function buildPortfolioHistory(
   transactions: Transaction[],
-  usdKrw: number
+  usdKrw: number,
+  maxYears = 3
 ): Promise<HistoryPoint[]> {
   if (transactions.length === 0) return [];
 
   const sorted = [...transactions].sort((a, b) => a.trade_date.localeCompare(b.trade_date));
   const firstDate = sorted[0].trade_date;
-  const period1 = Math.floor(new Date(firstDate).getTime() / 1000);
+
+  // 3년 캡: 오래된 포트폴리오도 최근 3년만 계산
+  const capMs = maxYears * 365.25 * 24 * 3600 * 1000;
+  const startMs = Math.max(new Date(firstDate).getTime(), Date.now() - capMs);
+  const period1 = Math.floor(startMs / 1000);
   const period2 = Math.floor(Date.now() / 1000);
 
   const tickers = [...new Set(sorted.map((t) => t.ticker).filter((t) => t !== 'CASH'))];
 
   const closeMap = new Map<string, WeeklyClose[]>();
-  for (let i = 0; i < tickers.length; i += 4) {
-    const batch = tickers.slice(i, i + 4);
+  // 동시 요청을 2개로 제한 (Yahoo rate limit 보호)
+  for (let i = 0; i < tickers.length; i += 2) {
+    const batch = tickers.slice(i, i + 2);
     await Promise.all(batch.map(async (ticker) => {
       const closes = await fetchWeeklyCloses(ticker, period1, period2, usdKrw);
       closeMap.set(ticker, closes);
     }));
   }
 
-  const weeks: string[] = [];
-  const cur = new Date(firstDate);
+  // 월간 스냅샷 날짜 생성 (매월 1일 기준)
+  const startDate = new Date(startMs);
+  startDate.setDate(1);
+  const months: string[] = [];
+  const cur = new Date(startDate);
   const end = new Date();
-  while (cur <= end) {
-    weeks.push(cur.toISOString().slice(0, 10));
-    cur.setDate(cur.getDate() + 7);
+  // 안전 상한: 월간 + maxYears 캡이면 최대 ~수십 개. 1000은 어떤 경우에도
+  // 무한 루프를 차단하기 위한 방어선이다 (정상 경로에서는 절대 도달하지 않음).
+  let guard = 0;
+  while (cur <= end && guard < 1000) {
+    months.push(cur.toISOString().slice(0, 10));
+    cur.setMonth(cur.getMonth() + 1);
+    guard++;
   }
   const endStr = end.toISOString().slice(0, 10);
-  if (weeks[weeks.length - 1] !== endStr) {
-    weeks.push(endStr);
-  }
+  if (months[months.length - 1] !== endStr) months.push(endStr);
 
-  return weeks.map((date) => {
+  return months.map((date) => {
     const holdings = calcHoldingsAtDate(transactions, date);
     let value_krw = 0;
     for (const [ticker, shares] of holdings.entries()) {

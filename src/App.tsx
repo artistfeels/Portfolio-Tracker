@@ -4,8 +4,11 @@ import type { Page } from './lib/types';
 import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
 import Transactions from './pages/Transactions';
+import Analytics from './pages/Analytics';
 import { usePortfolio } from './hooks/usePortfolio';
 import { supabase } from './lib/supabaseClient';
+
+export type Theme = 'light' | 'dark';
 
 // ─── 로그인 화면 ───────────────────────────────────────────────────────────────
 
@@ -27,15 +30,15 @@ function LoginPage() {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      minHeight: '100vh', background: '#0d1117',
+      minHeight: '100vh', background: 'var(--bg-primary)',
     }}>
       <div style={{
-        background: '#161b22', border: '1px solid #30363d', borderRadius: 12,
+        background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 12,
         padding: '40px 48px', display: 'flex', flexDirection: 'column', gap: 14,
         width: 320,
       }}>
-        <div style={{ fontSize: 22, fontWeight: 700, color: '#e6edf3' }}>Portfolio Tracker</div>
-        <div style={{ fontSize: 13, color: '#8b949e', marginBottom: 4 }}>로그인하세요</div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)' }}>Portfolio Tracker</div>
+        <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 4 }}>로그인하세요</div>
 
         <input
           type="email"
@@ -55,13 +58,13 @@ function LoginPage() {
           style={inputStyle}
         />
 
-        {error && <div style={{ fontSize: 12, color: '#cf222e' }}>{error}</div>}
+        {error && <div style={{ fontSize: 12, color: 'var(--up)' }}>{error}</div>}
 
         <button
           onClick={handleLogin}
           disabled={loading}
           style={{
-            background: loading ? '#21262d' : '#1f6feb',
+            background: loading ? 'var(--bg-tertiary)' : '#1f6feb',
             border: 'none', borderRadius: 6, padding: '10px 0',
             color: '#fff', fontSize: 14, fontWeight: 600,
             cursor: loading ? 'default' : 'pointer', marginTop: 4,
@@ -75,22 +78,23 @@ function LoginPage() {
 }
 
 const inputStyle: React.CSSProperties = {
-  background: '#0d1117', border: '1px solid #30363d', borderRadius: 6,
-  padding: '10px 14px', color: '#e6edf3', fontSize: 14, outline: 'none',
+  background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', borderRadius: 6,
+  padding: '10px 14px', color: 'var(--text-primary)', fontSize: 14, outline: 'none',
 };
 
 // ─── 인증된 메인 앱 ────────────────────────────────────────────────────────────
 
-function AuthenticatedApp() {
+function AuthenticatedApp({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () => void }) {
   const [page, setPage] = useState<Page>('dashboard');
   const portfolio = usePortfolio();
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', width: '100%', background: '#0d1117', color: '#e6edf3', fontFamily: 'sans-serif' }}>
-      <Sidebar current={page} onNavigate={setPage} />
+    <div style={{ display: 'flex', minHeight: '100vh', width: '100%', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontFamily: 'sans-serif' }}>
+      <Sidebar current={page} onNavigate={setPage} theme={theme} onToggleTheme={onToggleTheme} />
       <main style={{ flex: 1, overflow: 'auto', minWidth: 0 }}>
         {page === 'dashboard'    && <Dashboard portfolio={portfolio} />}
         {page === 'transactions' && <Transactions />}
+        {page === 'analytics'    && <Analytics portfolio={portfolio} />}
       </main>
     </div>
   );
@@ -101,6 +105,9 @@ function AuthenticatedApp() {
 export default function App() {
   // undefined = 아직 로딩 중, null = 비로그인, Session = 로그인됨
   const [session, setSession] = useState<Session | null | undefined>(undefined);
+  const [theme, setTheme] = useState<Theme>(
+    () => (localStorage.getItem('portfolio_theme') as Theme | null) ?? 'dark'
+  );
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -108,7 +115,14 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('portfolio_theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme(t => (t === 'dark' ? 'light' : 'dark'));
+
   if (session === undefined) return null; // 세션 확인 중 (순간적)
   if (session === null) return <LoginPage />;
-  return <AuthenticatedApp />;
+  return <AuthenticatedApp theme={theme} onToggleTheme={toggleTheme} />;
 }

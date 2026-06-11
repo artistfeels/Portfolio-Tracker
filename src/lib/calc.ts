@@ -1,4 +1,4 @@
-import type { Transaction, Holding, HoldingWithPrice, IrrResult } from './types';
+import type { Transaction, Holding, HoldingWithPrice, IrrResult, HistoryPoint } from './types';
 
 // 거래내역에서 현재 보유종목 자동 산출 (매수합 - 매도합)
 export function calcHoldings(transactions: Transaction[]): Holding[] {
@@ -154,6 +154,51 @@ export interface RiskRatios {
   beta: number | null;
 }
 
+export interface RiskRatiosDetailed extends RiskRatios {
+  n: number;           // 분석에 사용된 주(週) 수
+  rfAnnual: number;    // 연간 무위험금리 (SOFR)
+  R_p_ann: number;     // 연환산 포트폴리오 평균 수익률
+  R_m_ann: number;     // 연환산 S&P500 평균 수익률
+  sigma_p_ann: number; // 연환산 포트폴리오 전체 표준편차
+  sigma_d_ann: number; // 연환산 포트폴리오 하방 표준편차 (Sortino용)
+}
+
+export interface TwrPoint {
+  date: string;
+  twr: number; // 100 기준 인덱스 (시작=100)
+}
+
+/** Time-Weighted Return: 현금유출입을 구간별로 제거한 순수 운용 성과. */
+export function calcTwr(history: HistoryPoint[]): TwrPoint[] {
+  if (history.length === 0) return [];
+  let product = 1.0;
+  const pts: TwrPoint[] = [{ date: history[0].date, twr: 100 }];
+  for (let i = 1; i < history.length; i++) {
+    const prev = history[i - 1];
+    const curr = history[i];
+    // prev 또는 curr 중 하나라도 0이면 가격 데이터 누락 — 건너뜀 (product 유지)
+    if (prev.value_krw > 0 && curr.value_krw > 0) {
+      const netCashFlow = curr.invested_krw - prev.invested_krw;
+      const denom = prev.value_krw + netCashFlow;
+      if (denom > 0) product *= curr.value_krw / denom;
+    }
+    pts.push({ date: curr.date, twr: +(product * 100).toFixed(2) });
+  }
+  return pts;
+}
+
+/** 벤치마크 종가를 startDate 기준 100 인덱스로 변환. */
+export function buildIndexFrom(
+  closes: { date: string; close: number }[],
+  startDate: string
+): { date: string; value: number }[] {
+  const filtered = closes.filter((c) => c.date >= startDate);
+  if (filtered.length === 0) return [];
+  const base = filtered[0].close;
+  if (base <= 0) return [];
+  return filtered.map((c) => ({ date: c.date, value: +(c.close / base * 100).toFixed(2) }));
+}
+
 function mean(arr: number[]): number {
   return arr.reduce((s, v) => s + v, 0) / arr.length;
 }
@@ -168,34 +213,45 @@ function sampleCov(a: number[], b: number[]): number {
   return a.reduce((s, v, i) => s + (v - ma) * (b[i] - mb), 0) / (a.length - 1);
 }
 
-/** Expects weekly returns (e.g. from weekly portfolio history). Annualizes using factor 52. */
+/** 수익률 배열을 받아 연간화 리스크 지표 + 중간 계산값을 반환.
+ *  periodsPerYear: 52 = 주간, 12 = 월간 */
 export function calcRiskRatios(
   portfolioReturns: number[],
   marketReturns: number[],
-  rfAnnual: number
-): RiskRatios {
+  rfAnnual: number,
+  periodsPerYear = 12
+): RiskRatiosDetailed {
+  const nullResult: RiskRatiosDetailed = {
+    sharpe: null, sortino: null, treynor: null, beta: null,
+    n: portfolioReturns.length, rfAnnual,
+    R_p_ann: 0, R_m_ann: 0, sigma_p_ann: 0, sigma_d_ann: 0,
+  };
   if (portfolioReturns.length < 4 || marketReturns.length < 4 || portfolioReturns.length !== marketReturns.length) {
-    return { sharpe: null, sortino: null, treynor: null, beta: null };
+    return nullResult;
   }
 
   const n = portfolioReturns.length;
-  const rfWeekly = rfAnnual / 52;
-  const R_p_ann = mean(portfolioReturns) * 52;
-  const σ_p_ann = Math.sqrt(sampleVar(portfolioReturns)) * Math.sqrt(52);
+  const rfPeriod = rfAnnual / periodsPerYear;
+  // 기하평균 연환산: 현금유출입 조정된 월간 수익률의 복리 합산 → 1년 TWR과 동일
+  const geo = (arr: number[]) => Math.pow(arr.reduce((p, r) => p * (1 + r), 1), periodsPerYear / n) - 1;
+  const R_p_ann = geo(portfolioReturns);
+  const R_m_ann = geo(marketReturns);
+  const sigma_p_ann = Math.sqrt(sampleVar(portfolioReturns)) * Math.sqrt(periodsPerYear);
 
-  // population semi-variance (industry convention for Sortino downside deviation)
+  // population semi-variance (Sortino 하방편차: 업계 표준)
   const downsideVariance =
-    portfolioReturns.reduce((s, r) => s + Math.min(r - rfWeekly, 0) ** 2, 0) / n;
-  const σ_d_ann = Math.sqrt(downsideVariance) * Math.sqrt(52);
+    portfolioReturns.reduce((s, r) => s + Math.min(r - rfPeriod, 0) ** 2, 0) / n;
+  const sigma_d_ann = Math.sqrt(downsideVariance) * Math.sqrt(periodsPerYear);
 
   const varM = sampleVar(marketReturns);
   const beta = varM > 1e-12 ? sampleCov(portfolioReturns, marketReturns) / varM : null;
   const excess = R_p_ann - rfAnnual;
 
   return {
-    sharpe: σ_p_ann > 1e-12 ? excess / σ_p_ann : null,
-    sortino: σ_d_ann > 1e-12 ? excess / σ_d_ann : null,
+    sharpe: sigma_p_ann > 1e-12 ? excess / sigma_p_ann : null,
+    sortino: sigma_d_ann > 1e-12 ? excess / sigma_d_ann : null,
     treynor: beta !== null && Math.abs(beta) > 0.001 ? excess / beta : null,
     beta,
+    n, rfAnnual, R_p_ann, R_m_ann, sigma_p_ann, sigma_d_ann,
   };
 }

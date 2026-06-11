@@ -71,47 +71,49 @@ describe('calcHoldingIrrs', () => {
 
 describe('calcRiskRatios', () => {
   const rets = [0.02, -0.01, 0.03, -0.01, 0.01];
+  // 원래 테스트 기대값은 주간(periodsPerYear=52) 기준으로 산출됨.
+  const W = 52;
 
   it('beta = 1 when portfolio returns === market returns', () => {
-    const r = calcRiskRatios(rets, rets, 0);
+    const r = calcRiskRatios(rets, rets, 0, W);
     expect(r.beta).toBeCloseTo(1.0, 5);
   });
 
   it('Treynor = annualized excess return / 1 when beta = 1, rf = 0', () => {
-    const r = calcRiskRatios(rets, rets, 0);
-    expect(r.treynor).toBeCloseTo(0.416, 3);
+    const r = calcRiskRatios(rets, rets, 0, W);
+    expect(r.treynor).toBeCloseTo(0.5035, 3);
   });
 
-  it('Sharpe uses sample std annualized', () => {
-    const r = calcRiskRatios(rets, rets, 0);
-    expect(r.sharpe).toBeCloseTo(3.22, 1);
+  it('Sharpe uses geometric annualized R_p and sample std', () => {
+    const r = calcRiskRatios(rets, rets, 0, W);
+    expect(r.sharpe).toBeCloseTo(3.90, 1);
   });
 
-  it('Sortino uses population downside variance over all n observations', () => {
-    const r = calcRiskRatios(rets, rets, 0);
-    expect(r.sortino).toBeCloseTo(9.1, 0);
+  it('Sortino uses geometric R_p and population downside variance', () => {
+    const r = calcRiskRatios(rets, rets, 0, W);
+    expect(r.sortino).toBeCloseTo(11.0, 0);
   });
 
-  it('returns all-null when fewer than 4 data points', () => {
+  it('returns all-null ratios when fewer than 4 data points', () => {
     const r = calcRiskRatios([0.01, 0.02], [0.01, 0.02], 0.05);
-    expect(r).toEqual({ sharpe: null, sortino: null, treynor: null, beta: null });
+    expect(r).toMatchObject({ sharpe: null, sortino: null, treynor: null, beta: null });
   });
 
-  it('returns all-null when arrays have different lengths', () => {
+  it('returns all-null ratios when arrays have different lengths', () => {
     const r = calcRiskRatios([0.01, 0.02, 0.03, 0.04, 0.05], [0.01, 0.02, 0.03, 0.04], 0);
-    expect(r).toEqual({ sharpe: null, sortino: null, treynor: null, beta: null });
+    expect(r).toMatchObject({ sharpe: null, sortino: null, treynor: null, beta: null });
   });
 
   it('returns Treynor null when market has zero variance', () => {
     const flat = [0.01, 0.01, 0.01, 0.01, 0.01];
-    const r = calcRiskRatios(rets, flat, 0);
+    const r = calcRiskRatios(rets, flat, 0, W);
     expect(r.treynor).toBeNull();
     expect(r.beta).toBeNull();
   });
 
   it('Sortino null when no observations fall below rfWeekly', () => {
     const highRets = [0.05, 0.06, 0.07, 0.08, 0.09];
-    const r = calcRiskRatios(highRets, highRets, 0);
+    const r = calcRiskRatios(highRets, highRets, 0, W);
     expect(r.sortino).toBeNull();
   });
 });

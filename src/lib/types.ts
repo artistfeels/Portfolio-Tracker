@@ -1,4 +1,4 @@
-export type Page = 'dashboard' | 'transactions';
+export type Page = 'dashboard' | 'transactions' | 'analytics';
 
 export interface Transaction {
   id: string;
@@ -31,7 +31,7 @@ export interface PriceResult {
   price_krw: number;
   daily_change_pct: number | null;
   prev_close_krw: number;
-  source: 'yahoo' | 'cache' | 'manual';
+  source: 'yahoo' | 'naver' | 'cache' | 'manual';
   fetched_at: string;
   display_name?: string;
 }

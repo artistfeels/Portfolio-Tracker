@@ -3,6 +3,14 @@ import { createChart, CandlestickSeries, LineSeries } from 'lightweight-charts';
 import type { IChartApi } from 'lightweight-charts';
 import { toChartSymbol } from '../lib/prices';
 
+// lightweight-charts는 var(--x) 같은 CSS 변수 참조를 해석하지 못하므로
+// 실제 색상 값으로 변환해서 넘겨야 한다.
+function cssVar(name: string, fallback: string): string {
+  if (typeof window === 'undefined') return fallback;
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return v || fallback;
+}
+
 type CandleTime = string | number;
 
 interface Candle {
@@ -232,18 +240,20 @@ export default function ChartPanel({ ticker, name }: Props) {
     const chart = createChart(containerRef.current, {
       width:  w,
       height: 340,
-      layout:          { background: { color: '#0d1117' }, textColor: '#8b949e' },
-      grid:            { vertLines: { color: '#21262d' }, horzLines: { color: '#21262d' } },
-      timeScale:       { borderColor: '#30363d', timeVisible: iv === '1h' },
-      rightPriceScale: { borderColor: '#30363d' },
+      layout:          { background: { color: cssVar('--bg-primary', '#0d1117') }, textColor: cssVar('--text-secondary', '#8b949e') },
+      grid:            { vertLines: { color: cssVar('--bg-tertiary', '#21262d') }, horzLines: { color: cssVar('--bg-tertiary', '#21262d') } },
+      timeScale:       { borderColor: cssVar('--border-primary', '#30363d'), timeVisible: iv === '1h' },
+      rightPriceScale: { borderColor: cssVar('--border-primary', '#30363d') },
       crosshair:       { mode: 1 },
     });
     chartRef.current = chart;
 
+    const up = cssVar('--up', '#cf222e');
+    const down = cssVar('--down', '#1f6feb');
     const cs = chart.addSeries(CandlestickSeries, {
-      upColor: '#cf222e', downColor: '#1f6feb',
-      borderUpColor: '#cf222e', borderDownColor: '#1f6feb',
-      wickUpColor: '#cf222e', wickDownColor: '#1f6feb',
+      upColor: up, downColor: down,
+      borderUpColor: up, borderDownColor: down,
+      wickUpColor: up, wickDownColor: down,
     });
     candleSerRef.current = cs;
 
@@ -309,9 +319,9 @@ export default function ChartPanel({ ticker, name }: Props) {
   const scopes = SCOPES[iv];
 
   return (
-    <div style={{ padding: '12px 16px 16px', background: '#0d1117', borderTop: '1px solid #21262d' }}>
+    <div style={{ padding: '12px 16px 16px', background: 'var(--bg-primary)', borderTop: '1px solid var(--bg-tertiary)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
-        <span style={{ fontSize: 13, color: '#8b949e', fontWeight: 500 }}>
+        <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>
           {name} {INTERVAL_LABELS[iv]}
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -328,9 +338,9 @@ export default function ChartPanel({ ticker, name }: Props) {
           <div style={{ display: 'flex', gap: 2 }}>
             {(['1h', '1d', '1wk', '1mo'] as Interval[]).map(t => (
               <button key={t} onClick={() => setIv(t)} style={{
-                background: iv === t ? '#30363d' : 'transparent',
-                border: '1px solid ' + (iv === t ? '#58a6ff' : '#30363d'),
-                color: iv === t ? '#58a6ff' : '#8b949e',
+                background: iv === t ? 'var(--border-primary)' : 'transparent',
+                border: '1px solid ' + (iv === t ? 'var(--accent)' : 'var(--border-primary)'),
+                color: iv === t ? 'var(--accent)' : 'var(--text-secondary)',
                 padding: '3px 8px', borderRadius: 4, cursor: 'pointer', fontSize: 11,
               }}>
                 {INTERVAL_LABELS[t]}
@@ -341,9 +351,9 @@ export default function ChartPanel({ ticker, name }: Props) {
           <div style={{ display: 'flex', gap: 2 }}>
             {scopes.map(s => (
               <button key={s.key} onClick={() => handleScope(s.key)} style={{
-                background: activeScope === s.key ? '#1f6feb' : '#21262d',
-                border: '1px solid #30363d',
-                color: activeScope === s.key ? '#fff' : '#8b949e',
+                background: activeScope === s.key ? 'var(--down)' : 'var(--bg-tertiary)',
+                border: '1px solid var(--border-primary)',
+                color: activeScope === s.key ? '#fff' : 'var(--text-secondary)',
                 padding: '3px 8px', borderRadius: 4, cursor: 'pointer', fontSize: 11,
               }}>
                 {s.label}
@@ -360,7 +370,7 @@ export default function ChartPanel({ ticker, name }: Props) {
           <div style={{
             position: 'absolute', inset: 0, height: 340,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: '#0d1117', color: '#8b949e', fontSize: 12,
+            background: 'var(--bg-primary)', color: 'var(--text-secondary)', fontSize: 12,
           }}>
             {error ? '차트 데이터를 불러올 수 없습니다.' : '차트 로딩 중...'}
           </div>

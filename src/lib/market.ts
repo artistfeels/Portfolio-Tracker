@@ -26,13 +26,15 @@ export async function fetchSofr(period1: number, period2: number): Promise<numbe
   }
 }
 
-export async function fetchSpxWeekly(
+async function fetchIndexWeekly(
+  encodedSymbol: string,
   period1: number,
   period2: number
 ): Promise<{ date: string; close: number }[]> {
   try {
+    // 월간 데이터: 데이터 포인트 4배 감소, 더 긴 기간 커버
     const res = await fetch(
-      `/api/yahoo/v8/finance/chart/%5EGSPC?interval=1wk&period1=${period1}&period2=${period2}`
+      `/api/yahoo/v8/finance/chart/${encodedSymbol}?interval=1mo&period1=${period1}&period2=${period2}`
     );
     const j = await res.json();
     const result = j?.chart?.result?.[0];
@@ -50,4 +52,12 @@ export async function fetchSpxWeekly(
   } catch {
     return [];
   }
+}
+
+export async function fetchSpxWeekly(period1: number, period2: number) {
+  return fetchIndexWeekly('%5EGSPC', period1, period2);
+}
+
+export async function fetchKospiWeekly(period1: number, period2: number) {
+  return fetchIndexWeekly('%5EKS11', period1, period2);
 }

@@ -1,139 +1,531 @@
 // src/pages/Analytics.tsx
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createChart, LineSeries } from 'lightweight-charts';
 import { useAnalytics } from '../hooks/useAnalytics';
+import type { usePortfolio } from '../hooks/usePortfolio';
+import type { RiskRatiosDetailed } from '../lib/calc';
+
+type PortfolioState = ReturnType<typeof usePortfolio>;
+
+// lightweight-charts는 CSS 변수를 해석 못하므로 실제 값으로 변환
+function cssVar(name: string, fallback: string): string {
+  if (typeof window === 'undefined') return fallback;
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return v || fallback;
+}
+
+// 같은 날짜 중복 제거 + 오름차순 정렬. lightweight-charts.setData는 시간이
+// 오름차순·유일하지 않으면 throw하므로 차트 입력 전 반드시 통과시킨다.
+function dedupeSorted(data: { date: string; value: number }[]): { date: string; value: number }[] {
+  const seen = new Set<string>();
+  return [...data]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .filter(d => { if (seen.has(d.date)) return false; seen.add(d.date); return true; });
+}
+
+// ResizeObserver → applyOptions 피드백 루프를 차단한다.
+// - 콜백을 requestAnimationFrame으로 합쳐 "ResizeObserver loop" 폭주를 방지
+// - 폭(width)이 실제로 바뀐 경우에만 적용, 0이면 무시
+function observeWidth(el: HTMLElement, apply: (w: number) => void): { disconnect: () => void } {
+  let last = -1;
+  let raf = 0;
+  const ro = new ResizeObserver(() => {
+    if (raf) return;
+    raf = requestAnimationFrame(() => {
+      raf = 0;
+      const w = el.clientWidth;
+      if (w > 0 && w !== last) { last = w; apply(w); }
+    });
+  });
+  ro.observe(el);
+  return { disconnect: () => { if (raf) cancelAnimationFrame(raf); ro.disconnect(); } };
+}
 
 function fmt(n: number) {
   return n.toLocaleString('ko-KR', { maximumFractionDigits: 0 }) + '원';
 }
-function fmtPct(n: number | null): string {
+function fmtPct(n: number | null, decimals = 2): string {
   if (n === null) return '-';
   const sign = n >= 0 ? '+' : '';
-  return sign + (n * 100).toFixed(2) + '%';
+  return sign + (n * 100).toFixed(decimals) + '%';
 }
 function fmtRatio(n: number | null, digits = 2): string {
   if (n === null) return '-';
   return n.toFixed(digits);
 }
 
-function LineChart({ data, color, label }: {
-  data: { time: string; value: number }[];
-  color: string;
-  label: string;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!ref.current || data.length === 0) return;
-    const chart = createChart(ref.current, {
-      width: ref.current.clientWidth,
-      height: 220,
-      layout: { background: { color: '#0d1117' }, textColor: '#8b949e' },
-      grid: { vertLines: { color: '#21262d' }, horzLines: { color: '#21262d' } },
-      timeScale: { borderColor: '#30363d' },
-      rightPriceScale: { borderColor: '#30363d' },
-    });
-    const series = chart.addSeries(LineSeries, { color, lineWidth: 2 });
-    series.setData(data);
-    chart.timeScale().fitContent();
-    const ro = new ResizeObserver(() => {
-      if (ref.current) chart.applyOptions({ width: ref.current.clientWidth });
-    });
-    ro.observe(ref.current);
-    return () => { chart.remove(); ro.disconnect(); };
-  }, [data, color]);
+// ── 기간 필터 ────────────────────────────────────────────────────────
+type PeriodKey = '30d' | '3mo' | '6mo' | '1yr' | 'all';
+const PERIODS: { key: PeriodKey; label: string; days: number | null }[] = [
+  { key: '30d', label: '30일',  days: 30  },
+  { key: '3mo', label: '3개월', days: 90  },
+  { key: '6mo', label: '6개월', days: 180 },
+  { key: '1yr', label: '1년',   days: 365 },
+  { key: 'all', label: '전체',  days: null },
+];
+const PERIOD_STORAGE_KEY = 'portfolio_analytics_period';
 
+// ── 차트 로딩 스켈레톤 ──────────────────────────────────────────────
+function ChartSkeleton({ label, height }: { label: string; height: number }) {
   return (
-    <div style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, padding: 16 }}>
-      <div style={{ fontSize: 12, color: '#8b949e', marginBottom: 8 }}>{label}</div>
-      {data.length === 0
-        ? <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8b949e', fontSize: 12 }}>데이터 없음</div>
-        : <div ref={ref} />}
+    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: 16 }}>
+      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>{label}</div>
+      <div style={{
+        height, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: 'var(--text-muted)', fontSize: 12, gap: 8,
+        background: 'var(--bg-primary)', borderRadius: 4,
+      }}>
+        <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⟳</span>
+        차트 데이터 로딩 중... (월간 시세 fetch)
+      </div>
     </div>
   );
 }
 
-export default function Analytics() {
-  const { status, history, summary, holdingIrrs, error } = useAnalytics();
+// ── 공통 차트 옵션 ──────────────────────────────────────────────────
+function chartOptions(height: number) {
+  return {
+    height,
+    layout: { background: { color: cssVar('--bg-primary', '#0d1117') }, textColor: cssVar('--text-secondary', '#8b949e') },
+    grid: { vertLines: { color: cssVar('--bg-tertiary', '#21262d') }, horzLines: { color: cssVar('--bg-tertiary', '#21262d') } },
+    timeScale: {
+      borderColor: cssVar('--border-primary', '#30363d'),
+      lockVisibleTimeRangeOnResize: false,
+    },
+    rightPriceScale: { borderColor: cssVar('--border-primary', '#30363d') },
+    crosshair: { mode: 1 },
+    handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
+    handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: true },
+  } as const;
+}
 
-  if (status === 'error') return <div style={{ padding: 32, color: '#cf222e' }}>오류: {error}</div>;
-  if (status === 'loading' || status === 'idle') {
-    return <div style={{ padding: 32, color: '#8b949e' }}>애널리틱스 데이터 로딩 중... (Yahoo Finance 과거 시세 fetch)</div>;
-  }
+// ── 자산 총액 + 원금 차트 ───────────────────────────────────────────
+function AssetChart({ valueData, principalData }: {
+  valueData: { date: string; value: number }[];
+  principalData: { date: string; value: number }[];
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!ref.current || valueData.length === 0) return;
+    const el = ref.current;
+    const chart = createChart(el, { width: el.clientWidth || 600, ...chartOptions(220) });
+    const toTime = (d: { date: string; value: number }) => ({ time: d.date as `${number}-${number}-${number}`, value: d.value });
+    const valueSeries = chart.addSeries(LineSeries, { color: cssVar('--accent', '#58a6ff'), lineWidth: 2, title: '' });
+    valueSeries.setData(dedupeSorted(valueData).map(toTime));
+    if (principalData.length > 0) {
+      const principalSeries = chart.addSeries(LineSeries, { color: cssVar('--text-muted', '#6e7681'), lineWidth: 1, lineStyle: 2, title: '' });
+      principalSeries.setData(dedupeSorted(principalData).map(toTime));
+    }
+    chart.timeScale().fitContent();
+    const ro = observeWidth(el, (w) => chart.applyOptions({ width: w }));
+    return () => { ro.disconnect(); chart.remove(); };
+  }, [valueData, principalData]);
+
+  return (
+    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 8 }}>
+        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>자산 총액 추이 (KRW)</div>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--text-secondary)' }}>
+            <span style={{ width: 14, height: 2, background: cssVar('--accent', '#58a6ff'), display: 'inline-block' }} />평가금액
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--text-muted)' }}>
+            <span style={{ width: 14, height: 2, background: cssVar('--text-muted', '#6e7681'), display: 'inline-block', opacity: 0.7 }} />투자원금
+          </div>
+        </div>
+      </div>
+      {valueData.length === 0
+        ? <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', fontSize: 12 }}>데이터 없음</div>
+        : <div ref={ref} style={{ height: 220, width: '100%' }} />}
+    </div>
+  );
+}
+
+// ── 벤치마크 비교 차트 (멀티라인) ──────────────────────────────────
+type SeriesDef = { data: { date: string; value: number }[]; color: string; label: string };
+
+function BenchmarkChart({ series }: { series: SeriesDef[] }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const hasData = series.some(s => s.data.length > 0);
+
+  useEffect(() => {
+    if (!ref.current || !hasData) return;
+    const el = ref.current;
+    const chart = createChart(el, { width: el.clientWidth || 600, ...chartOptions(280) });
+    for (const s of series) {
+      if (s.data.length === 0) continue;
+      // title: '' — price axis label 제거 (legend는 상단에 별도 표시)
+      const line = chart.addSeries(LineSeries, { color: s.color, lineWidth: 2, title: '' });
+      line.setData(dedupeSorted(s.data).map(d => ({ time: d.date as `${number}-${number}-${number}`, value: d.value })));
+    }
+    chart.timeScale().fitContent();
+    const ro = observeWidth(el, (w) => chart.applyOptions({ width: w }));
+    return () => { ro.disconnect(); chart.remove(); };
+  }, [series, hasData]);
+
+  return (
+    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>벤치마크 비교 (시작=100, TWR — 현금유출입 제거)</div>
+        <div style={{ display: 'flex', gap: 16 }}>
+          {series.map(s => (
+            <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--text-secondary)' }}>
+              <span style={{ width: 18, height: 2, background: s.color, display: 'inline-block', borderRadius: 1 }} />
+              {s.label}
+            </div>
+          ))}
+        </div>
+      </div>
+      {!hasData
+        ? <div style={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', fontSize: 12 }}>데이터 없음</div>
+        : <div ref={ref} style={{ height: 280, width: '100%' }} />}
+    </div>
+  );
+}
+
+// ── 리스크 지표 계산 과정 패널 ──────────────────────────────────────
+type RiskKey = 'sharpe' | 'sortino' | 'treynor' | 'beta';
+
+function RiskDetailPanel({ type, d }: { type: RiskKey; d: RiskRatiosDetailed }) {
+  const p  = (v: number) => (v * 100).toFixed(2) + '%';
+  const r  = (v: number) => v.toFixed(4);
+
+  if (type === 'sharpe') return (
+    <div style={detailStyle}>
+      <div style={detailTitle}>샤프 비율 계산 과정</div>
+      <code style={detailCode}>
+        샤프 = (R_p − R_f) / σ_p{'\n'}
+        {'\n'}
+        R_p  = {p(d.R_p_ann)}  (기하평균 연환산 — 최근 1년 TWR, 현금유출입 조정){'\n'}
+        R_f  = {p(d.rfAnnual)}  (SOFR 기간평균, 연간){'\n'}
+        σ_p  = {p(d.sigma_p_ann)}  (월간 표준편차 × √12, 표본분산){'\n'}
+        n    = {d.n}개월{'\n'}
+        {'\n'}
+        초과수익  = {p(d.R_p_ann)} − {p(d.rfAnnual)} = {p(d.R_p_ann - d.rfAnnual)}{'\n'}
+        샤프     = {p(d.R_p_ann - d.rfAnnual)} / {p(d.sigma_p_ann)} = {fmtRatio(d.sharpe)}
+      </code>
+      <div style={detailNote}>1 이상이면 위험 대비 초과수익 양호. 시장 평균(S&P500)은 장기 약 0.5~0.7.</div>
+    </div>
+  );
+
+  if (type === 'sortino') return (
+    <div style={detailStyle}>
+      <div style={detailTitle}>소르티노 비율 계산 과정</div>
+      <code style={detailCode}>
+        소르티노 = (R_p − R_f) / σ_d{'\n'}
+        {'\n'}
+        R_p  = {p(d.R_p_ann)}{'\n'}
+        R_f  = {p(d.rfAnnual)}{'\n'}
+        σ_d  = {p(d.sigma_d_ann)}  (하방 편차만 계산 — 무위험수익률 하회 구간만 포함){'\n'}
+        n    = {d.n}개월{'\n'}
+        {'\n'}
+        초과수익  = {p(d.R_p_ann - d.rfAnnual)}{'\n'}
+        소르티노 = {p(d.R_p_ann - d.rfAnnual)} / {p(d.sigma_d_ann)} = {fmtRatio(d.sortino)}
+      </code>
+      <div style={detailNote}>
+        샤프({fmtRatio(d.sharpe)}) vs 소르티노({fmtRatio(d.sortino)}): 소르티노가 더 높으면 변동성이 주로 상방으로 발생한다는 의미.
+        하방 변동성만 페널티로 보기 때문에 샤프보다 직관적인 경우가 많음.
+      </div>
+    </div>
+  );
+
+  if (type === 'treynor') return (
+    <div style={detailStyle}>
+      <div style={detailTitle}>트레이너 비율 계산 과정</div>
+      <code style={detailCode}>
+        트레이너 = (R_p − R_f) / β{'\n'}
+        {'\n'}
+        R_p  = {p(d.R_p_ann)}{'\n'}
+        R_f  = {p(d.rfAnnual)}{'\n'}
+        β    = {r(d.beta ?? 0)}  (포트폴리오와 S&P500의 공분산 / S&P500 분산){'\n'}
+        R_m  = {p(d.R_m_ann)}  (S&P500 연환산 수익률, 참고용){'\n'}
+        n    = {d.n}개월{'\n'}
+        {'\n'}
+        초과수익   = {p(d.R_p_ann - d.rfAnnual)}{'\n'}
+        트레이너  = {p(d.R_p_ann - d.rfAnnual)} / {r(d.beta ?? 0)} = {fmtRatio(d.treynor)}
+      </code>
+      <div style={detailNote}>β 1단위 시장위험 당 초과수익. 여러 포트폴리오 비교에 유용하지만 β가 낮은(금·현금 비중 높은) 포트폴리오에선 왜곡될 수 있음.</div>
+    </div>
+  );
+
+  // beta
+  return (
+    <div style={detailStyle}>
+      <div style={detailTitle}>베타(β) 계산 과정</div>
+      <code style={detailCode}>
+        β = Cov(R_p, R_m) / Var(R_m){'\n'}
+        {'\n'}
+        벤치마크: S&P500 월간 수익률{'\n'}
+        기간    : {d.n}개월{'\n'}
+        R_p_ann = {p(d.R_p_ann)}{'\n'}
+        R_m_ann = {p(d.R_m_ann)}{'\n'}
+        β       = {r(d.beta ?? 0)}
+      </code>
+      <div style={detailNote}>
+        β=1: 시장과 동일 움직임. β{'<'}1: 방어적(금·현금·저변동). β{'>'}1: 공격적(성장주).
+        ETF·금·현금 비중이 높으면 β가 낮게 나오는 것이 정상.
+      </div>
+    </div>
+  );
+}
+
+const detailStyle: React.CSSProperties = {
+  marginTop: 12, background: 'var(--bg-primary)', border: '1px solid var(--border-primary)',
+  borderRadius: 6, padding: '14px 18px',
+};
+const detailTitle: React.CSSProperties = {
+  fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 10,
+};
+const detailCode: React.CSSProperties = {
+  display: 'block', fontFamily: 'ui-monospace, Consolas, monospace',
+  fontSize: 12, color: 'var(--text-primary)', lineHeight: 1.8,
+  whiteSpace: 'pre', overflowX: 'auto', background: 'transparent',
+};
+const detailNote: React.CSSProperties = {
+  marginTop: 10, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.6,
+};
+
+// ── 메인 컴포넌트 ───────────────────────────────────────────────────
+export default function Analytics({ portfolio }: { portfolio: PortfolioState }) {
+  const { transactions, holdings, usdKrw, status: portfolioStatus, error: portfolioError } = portfolio;
+  const { summary, holdingIrrs, chartStatus, history, riskDetail, benchmarkData, loadCharts } =
+    useAnalytics(transactions, holdings, usdKrw);
+  const [period, setPeriod] = useState<PeriodKey>(
+    () => (localStorage.getItem(PERIOD_STORAGE_KEY) as PeriodKey | null) ?? 'all'
+  );
+  const [expandedRisk, setExpandedRisk] = useState<RiskKey | null>(null);
+  const [benchmarkStart, setBenchmarkStart] = useState<string>('');
+  const benchmarkInitRef = useRef(false);
+
+  useEffect(() => {
+    localStorage.setItem(PERIOD_STORAGE_KEY, period);
+  }, [period]);
+
+  // benchmarkData 최초 로드 시 시작일 기본값 설정
+  useEffect(() => {
+    if (benchmarkData?.portfolio.length && !benchmarkInitRef.current) {
+      benchmarkInitRef.current = true;
+      setBenchmarkStart(benchmarkData.portfolio[0].date);
+    }
+  }, [benchmarkData]);
+
+  // 선택 기간으로 history 필터링 (자산 추이 차트용)
+  const filteredHistory = useMemo(() => {
+    const cfg = PERIODS.find((p) => p.key === period);
+    if (!cfg || cfg.days === null) return history;
+    const cutoff = new Date(Date.now() - cfg.days * 24 * 3600 * 1000).toISOString().slice(0, 10);
+    return history.filter((p) => p.date >= cutoff);
+  }, [history, period]);
+
+  // 벤치마크 시리즈: 사용자 지정 시작일 기준으로 재인덱싱 (기간 필터와 독립)
+  const benchmarkSeriesData = useMemo<SeriesDef[]>(() => {
+    if (!benchmarkData) return [];
+    const trim = (arr: { date: string; value: number }[]) => {
+      const sub = benchmarkStart ? arr.filter(p => p.date >= benchmarkStart) : arr;
+      if (sub.length === 0) return sub;
+      const base = sub[0].value;
+      return base > 0 ? sub.map(p => ({ date: p.date, value: +(p.value / base * 100).toFixed(2) })) : sub;
+    };
+    return [
+      { data: trim(benchmarkData.portfolio), color: cssVar('--accent', '#58a6ff'), label: '내 포트폴리오' },
+      { data: trim(benchmarkData.spx),       color: '#f7931a',                     label: 'S&P500' },
+      { data: trim(benchmarkData.kospi),     color: '#3fb950',                     label: 'KOSPI' },
+    ];
+  }, [benchmarkData, benchmarkStart]);
 
   const valueData = useMemo(
-    () => history.map((p) => ({ time: p.date as `${number}-${number}-${number}`, value: p.value_krw })),
-    [history]
-  );
-  const returnData = useMemo(
-    () => history.map((p) => ({
-      time: p.date as `${number}-${number}-${number}`,
-      value: p.invested_krw > 0 ? ((p.value_krw - p.invested_krw) / p.invested_krw) * 100 : 0,
-    })),
-    [history]
+    () => filteredHistory.map((p) => ({ date: p.date, value: p.value_krw })),
+    [filteredHistory]
   );
 
-  const cards = [
+  const principalData = useMemo(
+    () => filteredHistory.map((p) => ({ date: p.date, value: p.invested_krw })),
+    [filteredHistory]
+  );
+
+  // usePortfolio가 거래내역 로딩에 실패한 경우에만 에러 표시.
+  if (portfolioStatus === 'error') {
+    return <div style={{ padding: 32, color: 'var(--up)' }}>오류: {portfolioError}</div>;
+  }
+  // 거래내역이 아직 0건이면(최초 로딩 직후) 가벼운 안내만 표시.
+  // 단, IRR 등 즉시 지표는 거래내역만 있으면 바로 계산되므로 굳이 막지 않는다.
+  if (transactions.length === 0 && (portfolioStatus === 'loading' || portfolioStatus === 'idle')) {
+    return (
+      <div style={{ padding: 32, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ fontSize: 14 }}>거래내역 로딩 중...</span>
+      </div>
+    );
+  }
+
+  const summaryCards = [
     { label: '포트폴리오 IRR', value: fmtPct(summary.portfolioIrr), positive: (summary.portfolioIrr ?? 0) >= 0 },
-    { label: '연환산 수익률', value: fmtPct(summary.annualReturn), positive: (summary.annualReturn ?? 0) >= 0 },
     { label: 'MDD', value: fmtPct(summary.mdd), positive: false },
     { label: '보유 기간', value: `${summary.holdingYears}년`, positive: true },
   ];
 
+  const riskCards: { key: RiskKey; label: string; value: string; raw: number | null; neutral: boolean }[] = [
+    { key: 'sharpe',  label: '샤프 비율',    value: fmtRatio(summary.sharpe),       raw: summary.sharpe,   neutral: false },
+    { key: 'sortino', label: '소르티노 비율', value: fmtRatio(summary.sortino),      raw: summary.sortino,  neutral: false },
+    { key: 'treynor', label: '트레이너 비율', value: fmtRatio(summary.treynor),      raw: summary.treynor,  neutral: false },
+    { key: 'beta',    label: '베타 (β)',      value: fmtRatio(summary.beta, 3),      raw: summary.beta,     neutral: true  },
+  ];
+
+
   return (
     <div style={{ padding: '24px 32px' }}>
-      <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 20 }}>애널리틱스</div>
+      {/* 헤더 + 기간 필터 */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ fontSize: 18, fontWeight: 700 }}>애널리틱스</div>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {PERIODS.map((p) => (
+            <button
+              key={p.key}
+              onClick={() => setPeriod(p.key)}
+              style={{
+                background: period === p.key ? 'var(--down)' : 'var(--bg-tertiary)',
+                border: '1px solid var(--border-primary)',
+                color: period === p.key ? '#fff' : 'var(--text-secondary)',
+                padding: '5px 12px', borderRadius: 6, cursor: 'pointer',
+                fontSize: 12, fontWeight: period === p.key ? 600 : 400,
+              }}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
-      {/* 상단 지표 카드 */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
-        {cards.map((c) => (
-          <div key={c.label} style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, padding: '16px 20px' }}>
-            <div style={{ fontSize: 12, color: '#8b949e', marginBottom: 6 }}>{c.label}</div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: c.label === 'MDD' ? '#1f6feb' : (c.positive ? '#cf222e' : '#1f6feb') }}>
+      {/* 상단 요약 카드 */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
+        {summaryCards.map((c) => (
+          <div key={c.label} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: '16px 20px' }}>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>{c.label}</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: c.label === 'MDD' ? 'var(--down)' : (c.positive ? 'var(--up)' : 'var(--down)') }}>
               {c.value}
             </div>
           </div>
         ))}
       </div>
 
-      {/* 리스크 지표 */}
+      {/* 차트/리스크 로딩 버튼 (idle일 때만) — 네트워크 작업은 명시적 클릭으로만 시작 */}
+      {chartStatus === 'idle' && (
+        <div style={{
+          marginBottom: 24, padding: '20px', background: 'var(--bg-card)',
+          border: '1px dashed var(--border-primary)', borderRadius: 8,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap',
+        }}>
+          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+            리스크 지표 · 벤치마크 비교 · 자산 추이 차트는 월간 시세를 추가로 불러옵니다.
+            {usdKrw <= 0 && <span style={{ color: 'var(--text-muted)' }}> (환율 로딩 중...)</span>}
+          </div>
+          <button
+            onClick={() => loadCharts()}
+            disabled={usdKrw <= 0}
+            style={{
+              background: usdKrw <= 0 ? 'var(--bg-tertiary)' : 'var(--accent, #1f6feb)',
+              border: 'none', color: '#fff',
+              padding: '8px 18px', borderRadius: 6,
+              cursor: usdKrw <= 0 ? 'default' : 'pointer',
+              fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap',
+            }}
+          >
+            차트 불러오기
+          </button>
+        </div>
+      )}
+
+      {/* 리스크 지표 카드 (클릭 → 계산 과정) — 차트 로딩 시작 후에만 표시 */}
+      {chartStatus !== 'idle' && (
       <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 11, color: '#8b949e', marginBottom: 10, letterSpacing: '0.04em' }}>
-          리스크 지표 &middot; S&amp;P500 벤치마크 &middot; SOFR 무위험금리
+        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 10, letterSpacing: '0.04em' }}>
+          리스크 지표 &middot; S&amp;P500 벤치마크 &middot; SOFR 무위험금리 &middot;{' '}
+          {chartStatus === 'loading'
+            ? <span style={{ color: 'var(--text-muted)' }}>차트 데이터 로딩 중...</span>
+            : <span style={{ color: 'var(--text-muted)' }}>카드 클릭 시 계산 과정 표시</span>
+          }
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
-          {[
-            { label: '샤프 비율', value: fmtRatio(summary.sharpe), raw: summary.sharpe, neutral: false },
-            { label: '소르티노 비율', value: fmtRatio(summary.sortino), raw: summary.sortino, neutral: false },
-            { label: '트레이너 비율', value: fmtRatio(summary.treynor), raw: summary.treynor, neutral: false },
-            { label: '베타 (β)', value: fmtRatio(summary.beta, 3), raw: summary.beta, neutral: true },
-          ].map((c) => {
+          {riskCards.map((c) => {
             const color = c.raw === null
-              ? '#8b949e'
-              : c.neutral
-              ? '#e6edf3'
-              : c.raw >= 0 ? '#cf222e' : '#1f6feb';
+              ? 'var(--text-secondary)'
+              : c.neutral ? 'var(--text-primary)'
+              : c.raw >= 0 ? 'var(--up)' : 'var(--down)';
+            const isSelected = expandedRisk === c.key;
             return (
-              <div key={c.label} style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, padding: '16px 20px' }}>
-                <div style={{ fontSize: 12, color: '#8b949e', marginBottom: 6 }}>{c.label}</div>
+              <div
+                key={c.key}
+                onClick={() => setExpandedRisk(isSelected ? null : c.key)}
+                style={{
+                  background: 'var(--bg-card)',
+                  border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border-primary)'}`,
+                  borderRadius: 8, padding: '16px 20px', cursor: 'pointer',
+                  transition: 'border-color 0.15s',
+                }}
+              >
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>{c.label}</div>
                 <div style={{ fontSize: 20, fontWeight: 700, color }}>{c.value}</div>
               </div>
             );
           })}
         </div>
+        {expandedRisk && riskDetail && (
+          <RiskDetailPanel type={expandedRisk} d={riskDetail} />
+        )}
       </div>
+      )}
 
-      {/* 차트 2열 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
-        <LineChart data={valueData} color="#58a6ff" label="자산 총액 추이 (KRW)" />
-        <LineChart data={returnData} color="#3fb950" label="수익률 % 추이" />
+      {/* 벤치마크 비교 차트 */}
+      {chartStatus !== 'idle' && (
+      <div style={{ marginBottom: 24 }}>
+        {chartStatus === 'loading'
+          ? <ChartSkeleton label="벤치마크 비교 (100 기준, TWR)" height={280} />
+          : (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>시작일</span>
+                <input
+                  type="date"
+                  value={benchmarkStart}
+                  min={benchmarkData?.portfolio[0]?.date ?? ''}
+                  max={new Date().toISOString().slice(0, 10)}
+                  onChange={e => setBenchmarkStart(e.target.value)}
+                  style={{
+                    background: 'var(--bg-tertiary)', border: '1px solid var(--border-primary)',
+                    borderRadius: 4, padding: '3px 8px', color: 'var(--text-primary)', fontSize: 12,
+                    cursor: 'pointer',
+                  }}
+                />
+                {benchmarkData?.portfolio[0]?.date && benchmarkStart !== benchmarkData.portfolio[0].date && (
+                  <button
+                    onClick={() => setBenchmarkStart(benchmarkData!.portfolio[0].date)}
+                    style={{
+                      background: 'none', border: '1px solid var(--border-primary)', borderRadius: 4,
+                      padding: '3px 8px', color: 'var(--text-secondary)', fontSize: 11, cursor: 'pointer',
+                    }}
+                  >처음으로</button>
+                )}
+              </div>
+              <BenchmarkChart series={benchmarkSeriesData} />
+            </>
+          )}
       </div>
+      )}
+
+      {/* 자산 총액 + 원금 추이 */}
+      {chartStatus !== 'idle' && (
+      <div style={{ marginBottom: 24 }}>
+        {chartStatus === 'loading'
+          ? <ChartSkeleton label="자산 총액 추이 (KRW)" height={220} />
+          : <AssetChart valueData={valueData} principalData={principalData} />}
+      </div>
+      )}
 
       {/* 종목별 IRR 테이블 */}
-      <div style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, overflow: 'hidden' }}>
-        <div style={{ padding: '12px 16px', borderBottom: '1px solid #21262d', fontSize: 13, fontWeight: 600 }}>종목별 IRR</div>
+      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, overflow: 'hidden' }}>
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--bg-tertiary)', fontSize: 13, fontWeight: 600 }}>종목별 IRR</div>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
-            <tr style={{ background: '#21262d', color: '#8b949e' }}>
+            <tr style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>
               {['종목명', '티커', '최초 매수', '투자 원금', '현재 평가', 'IRR'].map((h) => (
                 <th key={h} style={{ padding: '8px 14px', textAlign: h === 'IRR' || h === '투자 원금' || h === '현재 평가' ? 'right' : 'left', fontWeight: 500 }}>{h}</th>
               ))}
@@ -143,12 +535,12 @@ export default function Analytics() {
             {[...holdingIrrs]
               .sort((a, b) => (b.irr ?? -Infinity) - (a.irr ?? -Infinity))
               .map((r, i) => {
-                const irrColor = r.irr === null ? '#8b949e' : r.irr >= 0 ? '#cf222e' : '#1f6feb';
+                const irrColor = r.irr === null ? 'var(--text-secondary)' : r.irr >= 0 ? 'var(--up)' : 'var(--down)';
                 return (
-                  <tr key={r.ticker} style={{ borderTop: '1px solid #21262d', background: i % 2 === 0 ? 'transparent' : '#0d1117' }}>
+                  <tr key={r.ticker} style={{ borderTop: '1px solid var(--bg-tertiary)', background: i % 2 === 0 ? 'transparent' : 'var(--bg-primary)' }}>
                     <td style={{ padding: '8px 14px', fontWeight: 500 }}>{r.name}</td>
-                    <td style={{ padding: '8px 14px', color: '#8b949e', fontSize: 11 }}>{r.ticker}</td>
-                    <td style={{ padding: '8px 14px', color: '#8b949e' }}>{r.first_date}</td>
+                    <td style={{ padding: '8px 14px', color: 'var(--text-secondary)', fontSize: 11 }}>{r.ticker}</td>
+                    <td style={{ padding: '8px 14px', color: 'var(--text-secondary)' }}>{r.first_date}</td>
                     <td style={{ padding: '8px 14px', textAlign: 'right' }}>{fmt(r.invested_krw)}</td>
                     <td style={{ padding: '8px 14px', textAlign: 'right' }}>{fmt(r.current_value_krw)}</td>
                     <td style={{ padding: '8px 14px', textAlign: 'right', fontWeight: 700, color: irrColor }}>

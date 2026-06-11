@@ -51,7 +51,7 @@ export default function SparkLine({ ticker }: Props) {
   const pts = data.map((v, i) => `${toX(i).toFixed(1)},${toY(v).toFixed(1)}`).join(' ');
 
   const isUp = data[data.length - 1] >= data[0];
-  const color = isUp ? '#cf222e' : '#1f6feb';
+  const color = isUp ? 'var(--up)' : 'var(--down)';
 
   // Find index of min/max for markers
   let minIdx = 0, maxIdx = 0;
@@ -71,7 +71,7 @@ export default function SparkLine({ ticker }: Props) {
       <line
         x1={pad} y1={toY(data[0]).toFixed(1)}
         x2={W - pad} y2={toY(data[0]).toFixed(1)}
-        stroke="#30363d" strokeWidth="0.5" strokeDasharray="2,2"
+        stroke="var(--border-primary)" strokeWidth="0.5" strokeDasharray="2,2"
       />
       {/* main line */}
       <polyline
@@ -94,14 +94,14 @@ export default function SparkLine({ ticker }: Props) {
       {/* min label */}
       <text
         x={minX.toFixed(1)} y={(minY + 9).toFixed(1)}
-        fontSize="7" fill="#8b949e" textAnchor="middle"
+        fontSize="7" fill="var(--text-secondary)" textAnchor="middle"
       >
         {fmtLabel(data[minIdx])}
       </text>
       {/* max label */}
       <text
         x={maxX.toFixed(1)} y={(maxY - 4).toFixed(1)}
-        fontSize="7" fill="#8b949e" textAnchor="middle"
+        fontSize="7" fill="var(--text-secondary)" textAnchor="middle"
       >
         {fmtLabel(data[maxIdx])}
       </text>
