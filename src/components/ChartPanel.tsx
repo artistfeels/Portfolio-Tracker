@@ -23,35 +23,47 @@ type Interval = '1h' | '1d' | '1wk' | '1mo';
 interface ScopeConfig {
   key: string;
   label: string;
-  range: string;       // visible window (used to slice data)
-  fetchRange: string;  // yahoo range param to fetch (>= range, for MA warmup)
+  range: string;       // visible window (used to slice the displayed view)
+  fetchRange: string;  // yahoo range param to fetch (>= range, for MA warmup + scroll)
 }
+
+// IMPORTANT: Yahoo silently downgrades granularity when range='max' is sent with a
+// sub-quarterly interval (1d -> 1mo, 1h/1wk/1mo -> 3mo). That produced the "only a few
+// candles" and "weekly-looking daily" bugs. We therefore NEVER send 'max' to Yahoo and
+// instead use a large finite range that preserves the requested granularity. These cover
+// the full history of any real instrument while keeping the correct interval.
+const FETCH_MAX: Record<Interval, string> = {
+  '1h': '2y',   // intraday is capped at ~730 days by Yahoo anyway
+  '1d': '50y',
+  '1wk': '50y',
+  '1mo': '50y',
+};
 
 const SCOPES: Record<Interval, ScopeConfig[]> = {
   '1h': [
-    { key: '1d',  label: '1일',   range: '1d',  fetchRange: '5d'  },
-    { key: '5d',  label: '5일',   range: '5d',  fetchRange: '1mo' },
-    { key: '14d', label: '2주',   range: '1mo', fetchRange: '2mo' },
-    { key: '30d', label: '1개월', range: '1mo', fetchRange: '3mo' },
+    { key: '1d',  label: '1일',   range: '1d',  fetchRange: '60d' },
+    { key: '5d',  label: '5일',   range: '5d',  fetchRange: '60d' },
+    { key: '14d', label: '2주',   range: '1mo', fetchRange: '60d' },
+    { key: '30d', label: '1개월', range: '1mo', fetchRange: '60d' },
   ],
   '1d': [
-    { key: '3mo', label: '3개월', range: '3mo', fetchRange: '1y'  },
-    { key: '6mo', label: '6개월', range: '6mo', fetchRange: '2y'  },
-    { key: '1yr', label: '1년',   range: '1y',  fetchRange: '2y'  },
-    { key: '5yr', label: '5년',   range: '5y',  fetchRange: '5y'  },
-    { key: 'max', label: '전체',  range: 'max', fetchRange: 'max' },
+    { key: '3mo', label: '3개월', range: '3mo', fetchRange: FETCH_MAX['1d'] },
+    { key: '6mo', label: '6개월', range: '6mo', fetchRange: FETCH_MAX['1d'] },
+    { key: '1yr', label: '1년',   range: '1y',  fetchRange: FETCH_MAX['1d'] },
+    { key: '5yr', label: '5년',   range: '5y',  fetchRange: FETCH_MAX['1d'] },
+    { key: 'max', label: '전체',  range: 'max', fetchRange: FETCH_MAX['1d'] },
   ],
   '1wk': [
-    { key: '1yr',  label: '1년',  range: '1y',  fetchRange: '2y'  },
-    { key: '2yr',  label: '2년',  range: '2y',  fetchRange: '5y'  },
-    { key: '5yr',  label: '5년',  range: '5y',  fetchRange: '10y' },
-    { key: '10yr', label: '10년', range: '10y', fetchRange: 'max' },
-    { key: 'max',  label: '전체', range: 'max', fetchRange: 'max' },
+    { key: '1yr',  label: '1년',  range: '1y',  fetchRange: FETCH_MAX['1wk'] },
+    { key: '2yr',  label: '2년',  range: '2y',  fetchRange: FETCH_MAX['1wk'] },
+    { key: '5yr',  label: '5년',  range: '5y',  fetchRange: FETCH_MAX['1wk'] },
+    { key: '10yr', label: '10년', range: '10y', fetchRange: FETCH_MAX['1wk'] },
+    { key: 'max',  label: '전체', range: 'max', fetchRange: FETCH_MAX['1wk'] },
   ],
   '1mo': [
-    { key: '5yr',  label: '5년',  range: '5y',  fetchRange: 'max' },
-    { key: '10yr', label: '10년', range: '10y', fetchRange: 'max' },
-    { key: 'max',  label: '전체', range: 'max', fetchRange: 'max' },
+    { key: '5yr',  label: '5년',  range: '5y',  fetchRange: FETCH_MAX['1mo'] },
+    { key: '10yr', label: '10년', range: '10y', fetchRange: FETCH_MAX['1mo'] },
+    { key: 'max',  label: '전체', range: 'max', fetchRange: FETCH_MAX['1mo'] },
   ],
 };
 
@@ -81,22 +93,27 @@ function calcMA(closes: { time: CandleTime; value: number }[], period: number) {
   return result;
 }
 
-// Returns seconds-since-epoch cutoff for a Yahoo range string, or null for 'max'.
-function rangeCutoffSec(range: string): number | null {
-  if (range === 'max') return null;
-  const m = /^(\d+)(d|mo|y)$/.exec(range);
-  if (!m) return null;
-  const n = Number(m[1]);
-  const days = m[2] === 'd' ? n : m[2] === 'mo' ? n * 30 : n * 365;
-  return Math.floor(Date.now() / 1000) - days * 86400;
+function toSec(t: CandleTime): number {
+  return typeof t === 'number'
+    ? t
+    : Math.floor(new Date(t + 'T00:00:00Z').getTime() / 1000);
 }
 
+// Number of approx. trading days a visible range covers (used to pick the bar count
+// for the visible logical window). For 'max' returns Infinity.
 function rangeDays(range: string): number {
-  if (range === 'max') return Number.MAX_SAFE_INTEGER;
+  if (range === 'max') return Number.POSITIVE_INFINITY;
   const m = /^(\d+)(d|mo|y)$/.exec(range);
   if (!m) return 0;
   const n = Number(m[1]);
   return m[2] === 'd' ? n : m[2] === 'mo' ? n * 30 : n * 365;
+}
+
+// Seconds-since-epoch cutoff for a visible range, or null for 'max'.
+function rangeCutoffSec(range: string): number | null {
+  const days = rangeDays(range);
+  if (!isFinite(days)) return null;
+  return Math.floor(Date.now() / 1000) - days * 86400;
 }
 
 async function fetchCandles(yahooSym: string, iv: Interval, fetchRange: string): Promise<Candle[]> {
@@ -138,15 +155,6 @@ async function fetchCandles(yahooSym: string, iv: Interval, fetchRange: string):
   }
 }
 
-// Returns only candles within the visible window (date-based trim).
-// MAs are computed on the full dataset separately to get correct values.
-function sliceVisible(candles: Candle[], range: string): Candle[] {
-  const cutoff = rangeCutoffSec(range);
-  if (cutoff === null) return candles;
-  const toSec = (t: CandleTime) =>
-    typeof t === 'number' ? t : Math.floor(new Date(t + 'T00:00:00Z').getTime() / 1000);
-  return candles.filter(c => toSec(c.time) >= cutoff);
-}
 
 export default function ChartPanel({ ticker, name }: Props) {
   const containerRef   = useRef<HTMLDivElement>(null);
@@ -163,25 +171,47 @@ export default function ChartPanel({ ticker, name }: Props) {
   const [iv,      setIv]              = useState<Interval>('1d');
   const [activeScope, setActiveScope] = useState<string>(DEFAULT_SCOPE['1d']);
 
-  // Paints sliced candles + MA (computed on full history) then fits the view.
-  // Only called when chart + series are already initialized.
+  // Loads ALL fetched history into the chart, then sets the visible window.
+  // Scope buttons only zoom the visible range — full history stays loaded so the
+  // user can scroll/pan to older data.
   function paint(scope: ScopeConfig) {
     const chart = chartRef.current;
     const cs    = candleSerRef.current;
     if (!chart || !cs) return;
 
-    const all     = allCandlesRef.current;
-    const visible = sliceVisible(all, scope.range);
-    cs.setData(visible as never);
+    const all = allCandlesRef.current;
+    if (all.length === 0) return;
 
-    const allCloses    = all.map(c => ({ time: c.time, value: c.close }));
-    const visibleTimes = new Set(visible.map(c => String(c.time)));
+    // Full dataset is always set on the series — never pre-sliced.
+    cs.setData(all as never);
+
+    // MAs computed over the full history (correct warmup for MA200 etc.).
+    const allCloses = all.map(c => ({ time: c.time, value: c.close }));
     MA_CONFIGS.forEach((cfg, idx) => {
-      const ma = calcMA(allCloses, cfg.period).filter(p => visibleTimes.has(String(p.time)));
-      maSeriesRef.current[idx]?.setData(ma as never);
+      maSeriesRef.current[idx]?.setData(calcMA(allCloses, cfg.period) as never);
     });
 
-    chart.timeScale().fitContent();
+    const ts = chart.timeScale();
+
+    // 'max' (전체): show everything.
+    if (scope.range === 'max') {
+      ts.fitContent();
+      return;
+    }
+
+    // Compute the first index inside the requested window and reveal [firstIdx .. end].
+    const cutoffSec = rangeCutoffSec(scope.range);
+    if (cutoffSec == null) { ts.fitContent(); return; }
+
+    let firstIdx = all.findIndex(c => toSec(c.time) >= cutoffSec);
+    if (firstIdx < 0) firstIdx = 0; // window older than all data -> show all
+    const from = firstIdx - 0.5;
+    const to   = (all.length - 1) + 0.5;
+
+    // Defer so setData's render/measure pass completes before adjusting the range.
+    setTimeout(() => {
+      chartRef.current?.timeScale().setVisibleLogicalRange({ from, to });
+    }, 0);
   }
 
   useEffect(() => {
@@ -197,8 +227,7 @@ export default function ChartPanel({ ticker, name }: Props) {
 
     let cancelled = false;
 
-    // Explicit width so _private__width is set synchronously — fitContent() is safe to call
-    // in any async callback without timing tricks.
+    // Explicit width so the chart measures synchronously on mount. Never use autoSize.
     const w = containerRef.current.clientWidth || 800;
     const chart = createChart(containerRef.current, {
       width:  w,
@@ -225,7 +254,7 @@ export default function ChartPanel({ ticker, name }: Props) {
       })
     );
 
-    allCandlesRef.current  = [];
+    allCandlesRef.current   = [];
     fetchedRangeRef.current = '';
 
     fetchCandles(sym, iv, defScope.fetchRange).then(candles => {
@@ -247,7 +276,7 @@ export default function ChartPanel({ ticker, name }: Props) {
     return () => {
       cancelled = true;
       ro.disconnect();
-      chartRef.current   = null;
+      chartRef.current     = null;
       candleSerRef.current = null;
       maSeriesRef.current  = [];
       chart.remove();
@@ -258,6 +287,8 @@ export default function ChartPanel({ ticker, name }: Props) {
     setActiveScope(scopeKey);
     const scope = SCOPES[iv].find(s => s.key === scopeKey) ?? SCOPES[iv][0];
 
+    // All non-intraday scopes share the same FETCH_MAX range, so once loaded we just
+    // re-zoom. Re-fetch only when we don't yet have at least the requested coverage.
     const enough =
       allCandlesRef.current.length > 0 &&
       rangeDays(fetchedRangeRef.current) >= rangeDays(scope.fetchRange);

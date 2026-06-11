@@ -62,13 +62,17 @@ export function usePortfolio() {
       setUsdKrw(rate);
       usdKrwRef.current = rate;
 
-      // Supabase primary, localStorage fallback (cross-device sync works once table exists)
-      const cashFromSupabase = cashResult.data?.amount_krw;
-      const cashBalance = cashFromSupabase != null
-        ? Number(cashFromSupabase)
-        : Number(localStorage.getItem('portfolio_cash_krw') ?? '0');
-      if (cashFromSupabase != null) {
-        localStorage.setItem('portfolio_cash_krw', String(cashFromSupabase));
+      const supabaseCash = (!cashResult.error && cashResult.data?.amount_krw != null)
+        ? Number(cashResult.data.amount_krw)
+        : null;
+      const localCash = Number(localStorage.getItem('portfolio_cash_krw') ?? '0');
+      // Use the larger value: handles migration where Supabase table has default 0
+      // but localStorage already has real cash entered by the user.
+      const cashBalance = supabaseCash !== null ? Math.max(supabaseCash, localCash) : localCash;
+      localStorage.setItem('portfolio_cash_krw', String(cashBalance));
+      // If localStorage had more, sync it up to Supabase
+      if (supabaseCash !== null && localCash > supabaseCash) {
+        supabase.from('cash_balance').upsert({ id: 1, amount_krw: localCash }).then(() => {});
       }
 
       const cashEntry: HoldingWithPrice = {
