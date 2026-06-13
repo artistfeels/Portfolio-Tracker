@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createChart, LineSeries } from 'lightweight-charts';
 import { useAnalytics } from '../hooks/useAnalytics';
 import type { usePortfolio } from '../hooks/usePortfolio';
-import type { RiskRatiosDetailed } from '../lib/calc';
+import { calcPortfolioIrr, type RiskRatiosDetailed } from '../lib/calc';
 
 type PortfolioState = ReturnType<typeof usePortfolio>;
 
@@ -372,6 +372,9 @@ export default function Analytics({ portfolio }: { portfolio: PortfolioState }) 
     () => (localStorage.getItem(PERIOD_STORAGE_KEY) as PeriodKey | null) ?? 'all'
   );
   const [expandedRisk, setExpandedRisk] = useState<RiskKey | null>(null);
+  const [expandedIrr, setExpandedIrr] = useState(false);
+  const [excludedTickers, setExcludedTickers] = useState<Set<string>>(new Set());
+  const [expandedMdd, setExpandedMdd] = useState(false);
   const [benchmarkStart, setBenchmarkStart] = useState<string>('');
   const benchmarkInitRef = useRef(false);
 
@@ -421,6 +424,53 @@ export default function Analytics({ portfolio }: { portfolio: PortfolioState }) 
     [filteredHistory]
   );
 
+  const txsSorted = useMemo(
+    () => [...transactions].sort((a, b) => a.trade_date.localeCompare(b.trade_date)),
+    [transactions]
+  );
+
+  const filteredPortfolioIrr = useMemo(() => {
+    if (excludedTickers.size === 0) return summary.portfolioIrr;
+    const filteredTxs = txsSorted.filter(t => !excludedTickers.has(t.ticker));
+    const filteredHoldings = holdings.filter(h => !excludedTickers.has(h.ticker));
+    return filteredTxs.length ? calcPortfolioIrr(filteredTxs, filteredHoldings) : null;
+  }, [excludedTickers, txsSorted, holdings, summary.portfolioIrr]);
+
+  const yearlyMdd = useMemo(() => {
+    const yearMap = new Map<number, { date: string; value_krw: number }[]>();
+    for (const p of history) {
+      const year = parseInt(p.date.slice(0, 4));
+      if (!yearMap.has(year)) yearMap.set(year, []);
+      yearMap.get(year)!.push(p);
+    }
+    return [...yearMap.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([year, pts]) => {
+        let peak = -Infinity, mdd = 0;
+        for (const p of pts) {
+          if (p.value_krw > peak) peak = p.value_krw;
+          if (peak > 0) { const dd = (p.value_krw - peak) / peak; if (dd < mdd) mdd = dd; }
+        }
+        return { year, mdd };
+      });
+  }, [history]);
+
+  const cagr = useMemo(() => {
+    const totalInvested = holdingIrrs.reduce((s, h) => s + h.invested_krw, 0);
+    const totalValue = holdingIrrs.reduce((s, h) => s + h.current_value_krw, 0);
+    const years = summary.holdingYears;
+    if (years <= 0 || totalInvested <= 0) return null;
+    return Math.pow(totalValue / totalInvested, 1 / years) - 1;
+  }, [holdingIrrs, summary.holdingYears]);
+
+  const alpha = useMemo(() => {
+    if (!riskDetail) return null;
+    const { R_p_ann, rfAnnual, beta: b, R_m_ann } = riskDetail;
+    return R_p_ann - (rfAnnual + (b ?? 0) * (R_m_ann - rfAnnual));
+  }, [riskDetail]);
+
+  const sigma = riskDetail?.sigma_p_ann ?? null;
+
   // usePortfolio가 거래내역 로딩에 실패한 경우에만 에러 표시.
   if (portfolioStatus === 'error') {
     return <div style={{ padding: 32, color: 'var(--up)' }}>오류: {portfolioError}</div>;
@@ -435,11 +485,6 @@ export default function Analytics({ portfolio }: { portfolio: PortfolioState }) 
     );
   }
 
-  const summaryCards = [
-    { label: '포트폴리오 IRR', value: fmtPct(summary.portfolioIrr), positive: (summary.portfolioIrr ?? 0) >= 0 },
-    { label: 'MDD', value: fmtPct(summary.mdd), positive: false },
-    { label: '보유 기간', value: `${summary.holdingYears}년`, positive: true },
-  ];
 
   const riskCards: { key: RiskKey; label: string; value: string; raw: number | null; neutral: boolean }[] = [
     { key: 'sharpe',  label: '샤프 비율',    value: fmtRatio(summary.sharpe),       raw: summary.sharpe,   neutral: false },
@@ -473,16 +518,173 @@ export default function Analytics({ portfolio }: { portfolio: PortfolioState }) 
         </div>
       </div>
 
-      {/* 상단 요약 카드 */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
-        {summaryCards.map((c) => (
-          <div key={c.label} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: '16px 20px' }}>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>{c.label}</div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: c.label === 'MDD' ? 'var(--down)' : (c.positive ? 'var(--up)' : 'var(--down)') }}>
-              {c.value}
+      {/* 상단 요약 카드 + 확장 패널 */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
+          {/* IRR 카드 */}
+          <div
+            onClick={() => setExpandedIrr(v => !v)}
+            style={{
+              background: 'var(--bg-card)',
+              border: `1px solid ${expandedIrr ? 'var(--accent)' : 'var(--border-primary)'}`,
+              borderRadius: 8, padding: '16px 20px', cursor: 'pointer',
+              transition: 'border-color 0.15s',
+            }}
+          >
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>
+              포트폴리오 IRR
+              {excludedTickers.size > 0 && (
+                <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--text-muted)' }}>
+                  ({excludedTickers.size}개 제외)
+                </span>
+              )}
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: (filteredPortfolioIrr ?? 0) >= 0 ? 'var(--up)' : 'var(--down)' }}>
+              {fmtPct(filteredPortfolioIrr)}
             </div>
           </div>
-        ))}
+
+          {/* MDD 카드 */}
+          <div
+            onClick={() => setExpandedMdd(v => !v)}
+            style={{
+              background: 'var(--bg-card)',
+              border: `1px solid ${expandedMdd ? 'var(--accent)' : 'var(--border-primary)'}`,
+              borderRadius: 8, padding: '16px 20px', cursor: 'pointer',
+              transition: 'border-color 0.15s',
+            }}
+          >
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>MDD</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--down)' }}>
+              {fmtPct(summary.mdd)}
+            </div>
+          </div>
+        </div>
+
+        {/* IRR 확장: 종목 제외 선택 */}
+        {expandedIrr && (
+          <div style={{
+            marginTop: 12, padding: '14px 18px',
+            background: 'var(--bg-primary)', border: '1px solid var(--border-primary)',
+            borderRadius: 6,
+          }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 10 }}>
+              제외할 종목 선택 — 선택된 종목을 빼고 IRR을 재계산합니다
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {holdingIrrs.map(h => {
+                const excluded = excludedTickers.has(h.ticker);
+                return (
+                  <button
+                    key={h.ticker}
+                    onClick={e => {
+                      e.stopPropagation();
+                      setExcludedTickers(prev => {
+                        const next = new Set(prev);
+                        if (next.has(h.ticker)) next.delete(h.ticker); else next.add(h.ticker);
+                        return next;
+                      });
+                    }}
+                    style={{
+                      padding: '4px 12px', borderRadius: 980, fontSize: 12, cursor: 'pointer',
+                      background: excluded ? 'var(--down)' : 'var(--bg-tertiary)',
+                      border: `1px solid ${excluded ? 'var(--down)' : 'var(--border-primary)'}`,
+                      color: excluded ? '#fff' : 'var(--text-secondary)',
+                      textDecoration: excluded ? 'line-through' : 'none',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {h.name ?? h.ticker}
+                  </button>
+                );
+              })}
+            </div>
+            {excludedTickers.size > 0 && (
+              <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                  {excludedTickers.size}개 제외 → 조정 IRR {fmtPct(filteredPortfolioIrr)}
+                </span>
+                <button
+                  onClick={e => { e.stopPropagation(); setExcludedTickers(new Set()); }}
+                  style={{
+                    background: 'none', border: '1px solid var(--border-primary)',
+                    borderRadius: 4, padding: '2px 8px', fontSize: 11,
+                    color: 'var(--text-secondary)', cursor: 'pointer',
+                  }}
+                >
+                  초기화
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* MDD 확장: 연도별 MDD 바 차트 */}
+        {expandedMdd && (
+          <div style={{
+            marginTop: 12, padding: '14px 18px',
+            background: 'var(--bg-primary)', border: '1px solid var(--border-primary)',
+            borderRadius: 6,
+          }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 12 }}>
+              연도별 최대 낙폭 (MDD)
+            </div>
+            {yearlyMdd.length === 0 ? (
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                먼저 심층 분석을 실행하면 연도별 데이터가 표시됩니다
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {(() => {
+                  const maxAbs = Math.max(...yearlyMdd.map(y => Math.abs(y.mdd)), 0.001);
+                  return yearlyMdd.map(({ year, mdd }) => (
+                    <div key={year} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 36, textAlign: 'right', fontSize: 12, color: 'var(--text-secondary)', flexShrink: 0 }}>
+                        {year}
+                      </div>
+                      <div style={{ flex: 1, height: 14, background: 'var(--bg-tertiary)', borderRadius: 3, overflow: 'hidden' }}>
+                        <div style={{
+                          width: `${(Math.abs(mdd) / maxAbs * 100).toFixed(1)}%`,
+                          height: '100%', background: 'var(--down)', borderRadius: 3,
+                          transition: 'width 0.4s ease',
+                        }} />
+                      </div>
+                      <div style={{
+                        width: 58, textAlign: 'right', fontSize: 12,
+                        color: 'var(--down)', fontWeight: 600,
+                        fontVariantNumeric: 'tabular-nums', flexShrink: 0,
+                      }}>
+                        {(mdd * 100).toFixed(1)}%
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 추가 지표: CAGR · 알파 α · 연간 변동성 σ */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginTop: 16 }}>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: '16px 20px' }}>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>CAGR</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: cagr === null ? 'var(--text-secondary)' : cagr >= 0 ? 'var(--up)' : 'var(--down)' }}>
+              {cagr === null ? '-' : fmtPct(cagr)}
+            </div>
+          </div>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: '16px 20px' }}>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>알파 (α)</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: alpha === null ? 'var(--text-secondary)' : alpha >= 0 ? 'var(--up)' : 'var(--down)' }}>
+              {alpha === null ? '-' : fmtPct(alpha)}
+            </div>
+          </div>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: '16px 20px' }}>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>연간 변동성 (σ)</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: sigma === null ? 'var(--text-secondary)' : 'var(--text-primary)' }}>
+              {sigma === null ? '-' : (sigma * 100).toFixed(1) + '%'}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* 분석 시작 버튼 (idle일 때만) */}
