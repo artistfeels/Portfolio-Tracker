@@ -375,6 +375,9 @@ export default function Analytics({ portfolio }: { portfolio: PortfolioState }) 
   const [expandedIrr, setExpandedIrr] = useState(false);
   const [excludedTickers, setExcludedTickers] = useState<Set<string>>(new Set());
   const [expandedMdd, setExpandedMdd] = useState(false);
+  const [expandedCagr, setExpandedCagr] = useState(false);
+  const [cagrYears, setCagrYears] = useState(5);
+  const [expandedAlpha, setExpandedAlpha] = useState(false);
   const [benchmarkStart, setBenchmarkStart] = useState<string>('');
   const benchmarkInitRef = useRef(false);
 
@@ -456,12 +459,24 @@ export default function Analytics({ portfolio }: { portfolio: PortfolioState }) 
   }, [history]);
 
   const cagr = useMemo(() => {
+    // 심층 분석 데이터가 있으면 포트폴리오 가치 기준으로 계산 (cagrYears 기준)
+    if (history.length >= 2) {
+      const cutoff = new Date();
+      cutoff.setFullYear(cutoff.getFullYear() - cagrYears);
+      const cutoffStr = cutoff.toISOString().slice(0, 10);
+      const startPt = history.find(p => p.date >= cutoffStr) ?? history[0];
+      const endPt = history[history.length - 1];
+      if (startPt.value_krw <= 0) return null;
+      const yrs = (new Date(endPt.date).getTime() - new Date(startPt.date).getTime()) / (365.25 * 24 * 3600 * 1000);
+      return yrs > 0 ? Math.pow(endPt.value_krw / startPt.value_krw, 1 / yrs) - 1 : null;
+    }
+    // 폴백: 투자원금 대비 현재가치 (전체 기간)
     const totalInvested = holdingIrrs.reduce((s, h) => s + h.invested_krw, 0);
     const totalValue = holdingIrrs.reduce((s, h) => s + h.current_value_krw, 0);
     const years = summary.holdingYears;
     if (years <= 0 || totalInvested <= 0) return null;
     return Math.pow(totalValue / totalInvested, 1 / years) - 1;
-  }, [holdingIrrs, summary.holdingYears]);
+  }, [history, cagrYears, holdingIrrs, summary.holdingYears]);
 
   const alpha = useMemo(() => {
     if (!riskDetail) return null;
@@ -666,18 +681,46 @@ export default function Analytics({ portfolio }: { portfolio: PortfolioState }) 
 
         {/* 추가 지표: CAGR · 알파 α · 연간 변동성 σ */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginTop: 16 }}>
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: '16px 20px' }}>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>CAGR</div>
+          {/* CAGR 카드 */}
+          <div
+            onClick={() => setExpandedCagr(v => !v)}
+            style={{
+              background: 'var(--bg-card)',
+              border: `1px solid ${expandedCagr ? 'var(--accent)' : 'var(--border-primary)'}`,
+              borderRadius: 8, padding: '16px 20px', cursor: 'pointer',
+              transition: 'border-color 0.15s',
+            }}
+          >
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>
+              CAGR
+              {history.length >= 2 && (
+                <span style={{ marginLeft: 5, fontSize: 10, color: 'var(--text-muted)' }}>
+                  {cagrYears === 100 ? '전체' : `최근 ${cagrYears}년`}
+                </span>
+              )}
+            </div>
             <div style={{ fontSize: 20, fontWeight: 700, color: cagr === null ? 'var(--text-secondary)' : cagr >= 0 ? 'var(--up)' : 'var(--down)' }}>
               {cagr === null ? '-' : fmtPct(cagr)}
             </div>
           </div>
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: '16px 20px' }}>
+
+          {/* 알파 카드 */}
+          <div
+            onClick={() => setExpandedAlpha(v => !v)}
+            style={{
+              background: 'var(--bg-card)',
+              border: `1px solid ${expandedAlpha ? 'var(--accent)' : 'var(--border-primary)'}`,
+              borderRadius: 8, padding: '16px 20px', cursor: 'pointer',
+              transition: 'border-color 0.15s',
+            }}
+          >
             <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>알파 (α)</div>
             <div style={{ fontSize: 20, fontWeight: 700, color: alpha === null ? 'var(--text-secondary)' : alpha >= 0 ? 'var(--up)' : 'var(--down)' }}>
               {alpha === null ? '-' : fmtPct(alpha)}
             </div>
           </div>
+
+          {/* 연간 변동성 카드 */}
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: '16px 20px' }}>
             <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>연간 변동성 (σ)</div>
             <div style={{ fontSize: 20, fontWeight: 700, color: sigma === null ? 'var(--text-secondary)' : 'var(--text-primary)' }}>
@@ -685,6 +728,64 @@ export default function Analytics({ portfolio }: { portfolio: PortfolioState }) 
             </div>
           </div>
         </div>
+
+        {/* CAGR 확장: 기간 선택 */}
+        {expandedCagr && (
+          <div style={{ marginTop: 10, padding: '12px 18px', background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', borderRadius: 6 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 10 }}>
+              계산 기간
+              {history.length < 2 && <span style={{ marginLeft: 6, fontWeight: 400, color: 'var(--text-muted)' }}>(심층 분석 실행 후 적용)</span>}
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {([1, 3, 5, 10, 100] as const).map(y => (
+                <button key={y} onClick={e => { e.stopPropagation(); setCagrYears(y); }}
+                  style={{
+                    background: cagrYears === y ? 'var(--accent)' : 'var(--bg-tertiary)',
+                    border: '1px solid var(--border-primary)',
+                    color: cagrYears === y ? '#fff' : 'var(--text-secondary)',
+                    padding: '4px 14px', borderRadius: 980, fontSize: 12, cursor: 'pointer',
+                    fontWeight: cagrYears === y ? 600 : 400, transition: 'all 0.15s',
+                  }}>
+                  {y === 100 ? '전체' : `${y}년`}
+                </button>
+              ))}
+            </div>
+            {history.length >= 2 && (
+              <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)' }}>
+                포트폴리오 총평가액 기준 — 심층 분석 데이터 사용
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 알파 확장: 계산 과정 */}
+        {expandedAlpha && (
+          riskDetail ? (
+            <div style={{ ...detailStyle, marginTop: 10 }}>
+              <div style={detailTitle}>알파 (α) 계산 과정</div>
+              <code style={detailCode}>
+                α = R_p − [R_f + β × (R_m − R_f)]   (CAPM 초과수익){'\n'}
+                {'\n'}
+                R_p  = {(riskDetail.R_p_ann * 100).toFixed(2)}%  (포트폴리오 연환산 수익률 — 최근 1년 TWR){'\n'}
+                R_f  = {(riskDetail.rfAnnual * 100).toFixed(2)}%  (SOFR 기간평균){'\n'}
+                β    = {(riskDetail.beta ?? 0).toFixed(4)}{'\n'}
+                R_m  = {(riskDetail.R_m_ann * 100).toFixed(2)}%  (S&P500 연환산 수익률){'\n'}
+                {'\n'}
+                CAPM 기대수익 = {(riskDetail.rfAnnual * 100).toFixed(2)} + {(riskDetail.beta ?? 0).toFixed(4)} × ({(riskDetail.R_m_ann * 100).toFixed(2)} − {(riskDetail.rfAnnual * 100).toFixed(2)}){'\n'}
+                            {'  '}= {((riskDetail.rfAnnual + (riskDetail.beta ?? 0) * (riskDetail.R_m_ann - riskDetail.rfAnnual)) * 100).toFixed(2)}%{'\n'}
+                α    = {(riskDetail.R_p_ann * 100).toFixed(2)}% − {((riskDetail.rfAnnual + (riskDetail.beta ?? 0) * (riskDetail.R_m_ann - riskDetail.rfAnnual)) * 100).toFixed(2)}% = {((alpha ?? 0) * 100).toFixed(2)}%
+              </code>
+              <div style={detailNote}>
+                α &gt; 0: 시장 기대 이상의 초과수익 — 운용 능력이 CAPM 예측을 상회한다는 의미.
+                α &lt; 0: 시장 기대 하회. 절대값이 작을수록 패시브 인덱스에 가까운 성과.
+              </div>
+            </div>
+          ) : (
+            <div style={{ marginTop: 10, padding: '12px 18px', background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', borderRadius: 6, fontSize: 12, color: 'var(--text-muted)' }}>
+              먼저 심층 분석을 실행하면 알파 계산 과정이 표시됩니다
+            </div>
+          )
+        )}
       </div>
 
       {/* 분석 시작 버튼 (idle일 때만) */}
