@@ -439,7 +439,7 @@ export default function Dashboard({ portfolio, theme = 'dark' }: Props) {
                         <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 1 }}>{h.ticker}</div>
                       </td>
                       <td style={{ padding: '4px 8px', width: 120 }}>
-                        {!isLoading && <SparkLine ticker={h.ticker} />}
+                        {!isLoading && <SparkLine ticker={h.ticker} dailyChangePct={h.daily_change_pct} />}
                       </td>
                       <td style={{ padding: '9px 14px', textAlign: 'right', color: 'var(--text-primary)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
                         {isLoading ? <span style={{ color: 'var(--text-secondary)' }}>...</span> : nativePrice(h.ticker, h.current_price_krw, usdKrw)}
