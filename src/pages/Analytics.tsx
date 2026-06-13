@@ -85,75 +85,118 @@ function AnalysisLoader() {
     return () => timers.forEach(clearTimeout);
   }, []);
 
+  // 신경망 노드 위치 (컨테이너 기준 절대 좌표 %)
+  const NODES = [
+    { top: '12%', left: '8%',  nx: '8px',  ny: '-10px', delay: '0s',    color: '#a78bfa' },
+    { top: '8%',  left: '72%', nx: '-6px', ny: '-8px',  delay: '0.7s',  color: '#38bdf8' },
+    { top: '55%', left: '4%',  nx: '10px', ny: '6px',   delay: '1.2s',  color: '#34d399' },
+    { top: '62%', left: '86%', nx: '-8px', ny: '10px',  delay: '0.4s',  color: '#f472b6' },
+    { top: '80%', left: '22%', nx: '6px',  ny: '8px',   delay: '1.8s',  color: '#fbbf24' },
+    { top: '78%', left: '68%', nx: '-10px',ny: '-6px',  delay: '0.9s',  color: '#60a5fa' },
+    { top: '28%', left: '90%', nx: '-8px', ny: '8px',   delay: '1.5s',  color: '#c084fc' },
+    { top: '42%', left: '2%',  nx: '8px',  ny: '-8px',  delay: '2.1s',  color: '#4ade80' },
+  ];
+
   return (
     <div style={{
       position: 'relative', overflow: 'hidden',
       borderRadius: 20, marginBottom: 24,
-      background: 'var(--bg-card)', minHeight: 380,
+      background: '#080c14',
+      minHeight: 420,
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      border: '1px solid var(--border-primary)',
+      border: '1px solid rgba(255,255,255,0.05)',
       animation: 'fadeSlideIn 0.4s ease',
     }}>
-      {/* Aurora orbs */}
+      {/* 배경 오로라 오브 */}
       <div className="aurora-orb aurora-orb-1" />
       <div className="aurora-orb aurora-orb-2" />
       <div className="aurora-orb aurora-orb-3" />
       <div className="aurora-orb aurora-orb-4" />
       <div className="aurora-orb aurora-orb-5" />
 
-      {/* 내용 */}
-      <div style={{ position: 'relative', zIndex: 2, textAlign: 'center', padding: '0 48px' }}>
-        {/* 레인보우 스피너 */}
-        <div style={{ position: 'relative', width: 68, height: 68, margin: '0 auto 32px' }}>
-          <div className="aurora-ring" />
-          <div className="aurora-ring-inner" />
+      {/* 신경망 노드 */}
+      {NODES.map((n, i) => (
+        <div
+          key={i}
+          className="energy-node"
+          style={{
+            top: n.top, left: n.left,
+            background: n.color,
+            boxShadow: `0 0 8px ${n.color}, 0 0 20px ${n.color}66`,
+            animationDelay: n.delay,
+            '--nx': n.nx, '--ny': n.ny,
+          } as React.CSSProperties}
+        />
+      ))}
+
+      {/* 노드 연결선 SVG */}
+      <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 }}>
+        <line x1="8%" y1="12%" x2="50%" y2="50%" stroke="rgba(167,139,250,0.18)" strokeWidth="1" />
+        <line x1="72%" y1="8%" x2="50%" y2="50%" stroke="rgba(56,189,248,0.18)" strokeWidth="1" />
+        <line x1="4%" y1="55%" x2="50%" y2="50%" stroke="rgba(52,211,153,0.18)" strokeWidth="1" />
+        <line x1="86%" y1="62%" x2="50%" y2="50%" stroke="rgba(244,114,182,0.18)" strokeWidth="1" />
+        <line x1="22%" y1="80%" x2="50%" y2="50%" stroke="rgba(251,191,36,0.18)" strokeWidth="1" />
+        <line x1="68%" y1="78%" x2="50%" y2="50%" stroke="rgba(96,165,250,0.18)" strokeWidth="1" />
+        <line x1="90%" y1="28%" x2="50%" y2="50%" stroke="rgba(192,132,252,0.15)" strokeWidth="1" />
+        <line x1="2%" y1="42%" x2="50%" y2="50%" stroke="rgba(74,222,128,0.15)" strokeWidth="1" />
+      </svg>
+
+      {/* 메인 콘텐츠 */}
+      <div style={{ position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 48px' }}>
+
+        {/* 에너지 링 어셈블리 */}
+        <div style={{ position: 'relative', width: 120, height: 120, marginBottom: 40 }}>
+          <div className="energy-ring energy-ring-outer" />
+          <div className="energy-ring energy-ring-mid" />
+          <div className="energy-orb" />
         </div>
 
-        {/* 그라디언트 텍스트 */}
+        {/* 그라디언트 타이틀 */}
         <div style={{
-          fontSize: 21, fontWeight: 700, letterSpacing: '-0.03em', marginBottom: 8,
-          background: 'linear-gradient(120deg, #a78bfa 0%, #60a5fa 50%, #34d399 100%)',
+          fontSize: 22, fontWeight: 700, letterSpacing: '-0.03em', marginBottom: 8,
+          background: 'linear-gradient(120deg, #a78bfa 0%, #38bdf8 50%, #34d399 100%)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
         }}>
           포트폴리오 분석 중
         </div>
-        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 44, lineHeight: 1.7 }}>
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.38)', marginBottom: 44, lineHeight: 1.7 }}>
           월간 시세 · 리스크 지표 · 벤치마크를 수집합니다
         </div>
 
         {/* 단계 표시 */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, width: 240, margin: '0 auto', textAlign: 'left' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, width: 248, textAlign: 'left' }}>
           {ANALYSIS_STEPS.map((label, i) => {
             const done = i < step;
             const active = i === step;
             return (
               <div key={label} style={{
                 display: 'flex', alignItems: 'center', gap: 12,
-                opacity: i <= step ? 1 : 0.35,
+                opacity: i <= step ? 1 : 0.22,
                 transition: 'opacity 0.6s ease',
               }}>
                 <div style={{
                   width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: done
-                    ? 'linear-gradient(135deg, #a78bfa, #60a5fa)'
-                    : 'transparent',
-                  border: done ? 'none' : `1.5px solid ${active ? '#a78bfa' : 'var(--border-primary)'}`,
-                  boxShadow: done ? '0 0 12px rgba(167,139,250,0.45)' : 'none',
+                  background: done ? 'linear-gradient(135deg, #a78bfa, #38bdf8)' : 'transparent',
+                  border: done ? 'none' : `1.5px solid ${active ? '#a78bfa' : 'rgba(255,255,255,0.14)'}`,
+                  boxShadow: done ? '0 0 14px rgba(167,139,250,0.7)' : active ? '0 0 8px rgba(167,139,250,0.35)' : 'none',
                   transition: 'all 0.45s ease',
                 }}>
                   {done && <span style={{ fontSize: 11, color: '#fff', fontWeight: 700 }}>✓</span>}
                   {active && (
                     <div style={{
                       width: 7, height: 7, borderRadius: '50%',
-                      background: 'linear-gradient(135deg, #a78bfa, #60a5fa)',
+                      background: '#a78bfa',
+                      boxShadow: '0 0 8px #a78bfa, 0 0 16px rgba(167,139,250,0.5)',
                       animation: 'pulse 1.1s ease-in-out infinite',
                     }} />
                   )}
                 </div>
                 <span style={{
-                  fontSize: 13, color: i <= step ? 'var(--text-primary)' : 'var(--text-muted)',
-                  fontWeight: active ? 500 : 400, transition: 'color 0.5s ease',
+                  fontSize: 13,
+                  color: done ? '#fff' : active ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.28)',
+                  fontWeight: active ? 500 : 400,
+                  transition: 'color 0.5s ease',
                 }}>
                   {label}
                 </span>

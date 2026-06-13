@@ -428,10 +428,12 @@ export default function Dashboard({ portfolio, theme = 'dark' }: Props) {
                   <React.Fragment key={h.ticker}>
                     <tr
                       onClick={() => setSelectedTicker(isSelected ? null : h.ticker)}
+                      className="row-enter"
                       style={{
                         borderTop: '1px solid var(--bg-tertiary)',
                         background: isSelected ? 'var(--bg-tertiary)' : i % 2 === 0 ? 'transparent' : 'var(--bg-primary)',
                         cursor: 'pointer',
+                        animationDelay: `${i * 0.045}s`,
                       }}
                     >
                       <td style={{ padding: '9px 14px', whiteSpace: 'nowrap' }}>
@@ -501,10 +503,12 @@ export default function Dashboard({ portfolio, theme = 'dark' }: Props) {
                   <React.Fragment key={h.ticker}>
                     <tr
                       onClick={() => setSelectedTicker(isSelected ? null : h.ticker)}
+                      className="row-enter"
                       style={{
                         borderTop: '1px solid var(--bg-tertiary)',
                         background: isSelected ? 'var(--bg-tertiary)' : i % 2 === 0 ? 'transparent' : 'var(--bg-primary)',
                         cursor: 'pointer',
+                        animationDelay: `${i * 0.045}s`,
                       }}
                     >
                       <td style={{ padding: '9px 14px' }}>

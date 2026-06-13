@@ -29,16 +29,41 @@ function LoginPage() {
 
   return (
     <div style={{
+      position: 'relative', overflow: 'hidden',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       minHeight: '100vh', background: 'var(--bg-primary)',
     }}>
-      <div style={{
-        background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 12,
-        padding: '40px 48px', display: 'flex', flexDirection: 'column', gap: 14,
-        width: 320,
-      }}>
-        <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)' }}>Portfolio Tracker</div>
-        <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 4 }}>로그인하세요</div>
+      {/* Aurora 배경 */}
+      <div className="aurora-orb aurora-orb-1" />
+      <div className="aurora-orb aurora-orb-2" />
+      <div className="aurora-orb aurora-orb-3" />
+      <div className="aurora-orb aurora-orb-4" />
+      <div className="aurora-orb aurora-orb-5" />
+
+      {/* 글래스 카드 */}
+      <div
+        className="glass-card"
+        style={{
+          position: 'relative', zIndex: 2,
+          borderRadius: 18,
+          padding: '44px 52px',
+          display: 'flex', flexDirection: 'column', gap: 14,
+          width: 340,
+          animation: 'fadeSlideIn 0.5s ease',
+        }}
+      >
+        {/* 로고 영역 */}
+        <div style={{ marginBottom: 4 }}>
+          <div style={{
+            fontSize: 24, fontWeight: 800, letterSpacing: '-0.04em',
+            background: 'linear-gradient(120deg, #a78bfa 0%, #38bdf8 55%, #34d399 100%)',
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+            marginBottom: 4,
+          }}>
+            Portfolio Tracker
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>계정으로 로그인하세요</div>
+        </div>
 
         <input
           type="email"
@@ -64,10 +89,14 @@ function LoginPage() {
           onClick={handleLogin}
           disabled={loading}
           style={{
-            background: loading ? 'var(--bg-tertiary)' : '#1f6feb',
-            border: 'none', borderRadius: 6, padding: '10px 0',
+            background: loading
+              ? 'var(--bg-tertiary)'
+              : 'linear-gradient(135deg, #7c3aed 0%, #2563eb 100%)',
+            border: 'none', borderRadius: 8, padding: '11px 0',
             color: '#fff', fontSize: 14, fontWeight: 600,
             cursor: loading ? 'default' : 'pointer', marginTop: 4,
+            boxShadow: loading ? 'none' : '0 4px 20px rgba(124,58,237,0.4)',
+            transition: 'all 0.2s ease',
           }}
         >
           {loading ? '로그인 중...' : '로그인'}
@@ -120,7 +149,11 @@ export default function App() {
     localStorage.setItem('portfolio_theme', theme);
   }, [theme]);
 
-  const toggleTheme = () => setTheme(t => (t === 'dark' ? 'light' : 'dark'));
+  const toggleTheme = () => {
+    document.documentElement.classList.add('theme-transitioning');
+    setTheme(t => (t === 'dark' ? 'light' : 'dark'));
+    setTimeout(() => document.documentElement.classList.remove('theme-transitioning'), 1400);
+  };
 
   if (session === undefined) return null; // 세션 확인 중 (순간적)
   if (session === null) return <LoginPage />;
