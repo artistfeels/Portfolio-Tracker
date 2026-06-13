@@ -76,14 +76,14 @@ export default function Transactions() {
     if (!preview) return;
     setUploading(true);
     if (replace) {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { error: delErr } = await supabase.from('transactions').delete().eq('user_id', user.id);
-        if (delErr) {
-          if (mountedRef.current) { setUploadResult(`삭제 오류: ${delErr.message}`); setUploadError(true); }
-          setUploading(false);
-          return;
-        }
+      const { error: delErr } = await supabase
+        .from('transactions')
+        .delete()
+        .gte('trade_date', '1900-01-01'); // RLS가 본인 데이터만 삭제
+      if (delErr) {
+        if (mountedRef.current) { setUploadResult(`삭제 오류: ${delErr.message}`); setUploadError(true); }
+        setUploading(false);
+        return;
       }
     }
     const { error } = await supabase.from('transactions').insert(preview);
