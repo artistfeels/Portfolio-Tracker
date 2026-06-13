@@ -207,6 +207,14 @@ export async function fetchPrice(ticker: string, usdKrwRate: number): Promise<Pr
 }
 
 export async function fetchUsdKrw(): Promise<number> {
+  // frankfurter.app: ECB 기반 환율, IP 제한 없음, CORS 허용, 무료
+  try {
+    const res = await fetchWithTimeout('https://api.frankfurter.app/latest?from=USD&to=KRW');
+    const j = await res.json();
+    const rate = j?.rates?.KRW;
+    if (typeof rate === 'number' && rate > 100) return Math.round(rate);
+  } catch { /* fall through */ }
+  // Yahoo 폴백
   const { price } = await fetchYahoo('USDKRW=X');
   return price ?? 1380;
 }
