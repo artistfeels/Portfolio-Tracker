@@ -72,16 +72,27 @@ export default function Transactions() {
     e.target.value = '';
   }
 
-  async function handleConfirmUpload() {
+  async function handleConfirmUpload(replace: boolean) {
     if (!preview) return;
     setUploading(true);
+    if (replace) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { error: delErr } = await supabase.from('transactions').delete().eq('user_id', user.id);
+        if (delErr) {
+          if (mountedRef.current) { setUploadResult(`삭제 오류: ${delErr.message}`); setUploadError(true); }
+          setUploading(false);
+          return;
+        }
+      }
+    }
     const { error } = await supabase.from('transactions').insert(preview);
     if (!mountedRef.current) return;
     if (error) {
       setUploadResult(`오류: ${error.message}`);
       setUploadError(true);
     } else {
-      setUploadResult(`✓ ${preview.length}건 추가됨`);
+      setUploadResult(replace ? `✓ 전체 교체 완료 — ${preview.length}건` : `✓ ${preview.length}건 추가됨`);
       setUploadError(false);
       setPreview(null);
       load();
@@ -153,13 +164,20 @@ export default function Transactions() {
               </tbody>
             </table>
             {preview.length > 20 && <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 8 }}>… 외 {preview.length - 20}건</div>}
-            <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+            <div style={{ display: 'flex', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
               <button
-                onClick={handleConfirmUpload}
+                onClick={() => handleConfirmUpload(false)}
                 disabled={uploading}
-                style={{ background: '#238636', border: 'none', color: '#fff', padding: '8px 18px', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}
+                style={{ background: '#238636', border: 'none', color: '#fff', padding: '8px 18px', borderRadius: 6, fontSize: 13, cursor: uploading ? 'default' : 'pointer' }}
               >
-                {uploading ? '업로드 중...' : '확인 — Supabase에 추가'}
+                {uploading ? '업로드 중...' : '추가'}
+              </button>
+              <button
+                onClick={() => handleConfirmUpload(true)}
+                disabled={uploading}
+                style={{ background: 'var(--up, #cf222e)', border: 'none', color: '#fff', padding: '8px 18px', borderRadius: 6, fontSize: 13, cursor: uploading ? 'default' : 'pointer' }}
+              >
+                {uploading ? '처리 중...' : '전체 교체 (기존 삭제 후 업로드)'}
               </button>
               <button
                 onClick={() => setPreview(null)}
