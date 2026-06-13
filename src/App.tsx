@@ -92,9 +92,9 @@ function AuthenticatedApp({ theme, onToggleTheme }: { theme: Theme; onToggleThem
     <div style={{ display: 'flex', minHeight: '100vh', width: '100%', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontFamily: 'sans-serif' }}>
       <Sidebar current={page} onNavigate={setPage} theme={theme} onToggleTheme={onToggleTheme} />
       <main style={{ flex: 1, overflow: 'auto', minWidth: 0 }}>
-        {page === 'dashboard'    && <Dashboard portfolio={portfolio} />}
-        {page === 'transactions' && <Transactions />}
-        {page === 'analytics'    && <Analytics portfolio={portfolio} />}
+        <div style={{ display: page === 'dashboard'    ? 'block' : 'none' }}><Dashboard portfolio={portfolio} /></div>
+        <div style={{ display: page === 'transactions' ? 'block' : 'none' }}><Transactions /></div>
+        <div style={{ display: page === 'analytics'   ? 'block' : 'none' }}><Analytics portfolio={portfolio} /></div>
       </main>
     </div>
   );

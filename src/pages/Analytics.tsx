@@ -65,22 +65,100 @@ const PERIODS: { key: PeriodKey; label: string; days: number | null }[] = [
 ];
 const PERIOD_STORAGE_KEY = 'portfolio_analytics_period';
 
-// ── 차트 로딩 스켈레톤 ──────────────────────────────────────────────
-function ChartSkeleton({ label, height }: { label: string; height: number }) {
+// ── 분석 로더 (Apple-style) ─────────────────────────────────────────
+const ANALYSIS_STEPS = [
+  '거래 내역 확인',
+  '월간 시세 수집',
+  '수익률 계산',
+  '리스크 지표 산출',
+  '차트 생성',
+];
+const STEP_DELAYS = [0, 800, 2400, 2900, 3500];
+
+function AnalysisLoader() {
+  const [step, setStep] = useState(0);
+
+  useEffect(() => {
+    const timers = STEP_DELAYS.slice(1).map((delay, i) =>
+      setTimeout(() => setStep(i + 1), delay)
+    );
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
   return (
-    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: 16 }}>
-      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>{label}</div>
-      <div style={{
-        height, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: 'var(--text-muted)', fontSize: 12, gap: 8,
-        background: 'var(--bg-primary)', borderRadius: 4,
-      }}>
-        <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⟳</span>
-        차트 데이터 로딩 중... (월간 시세 fetch)
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      padding: '52px 24px', gap: 36,
+      background: 'var(--bg-card)', borderRadius: 16,
+      border: '1px solid var(--border-primary)',
+      marginBottom: 24,
+      animation: 'fadeSlideIn 0.35s ease',
+    }}>
+      {/* 링 스피너 */}
+      <div style={{ position: 'relative', width: 52, height: 52 }}>
+        <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '2px solid var(--border-primary)' }} />
+        <div style={{
+          position: 'absolute', inset: 0, borderRadius: '50%',
+          border: '2px solid transparent', borderTopColor: 'var(--accent, #58a6ff)',
+          animation: 'spin 0.75s cubic-bezier(0.4, 0, 0.2, 1) infinite',
+        }} />
+      </div>
+
+      {/* 제목 */}
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '-0.02em', marginBottom: 6 }}>
+          포트폴리오 분석 중
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+          월간 시세 · 리스크 지표 · 벤치마크를 수집합니다
+        </div>
+      </div>
+
+      {/* 단계 표시 */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 260 }}>
+        {ANALYSIS_STEPS.map((label, i) => {
+          const done = i < step;
+          const active = i === step;
+          return (
+            <div key={label} style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              opacity: i <= step ? 1 : 0.25,
+              transition: 'opacity 0.5s ease',
+              animation: i === step ? 'fadeSlideIn 0.3s ease' : undefined,
+            }}>
+              <div style={{
+                width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: done ? 'var(--accent, #58a6ff)' : 'transparent',
+                border: done ? 'none' : '1.5px solid var(--border-primary)',
+                transition: 'all 0.4s ease',
+              }}>
+                {done && <span style={{ fontSize: 11, color: '#fff', fontWeight: 700 }}>✓</span>}
+                {active && (
+                  <div style={{
+                    width: 7, height: 7, borderRadius: '50%',
+                    background: 'var(--accent, #58a6ff)',
+                    animation: 'pulse 1.2s ease-in-out infinite',
+                  }} />
+                )}
+              </div>
+              <span style={{
+                fontSize: 13, letterSpacing: '-0.01em',
+                color: i <= step ? 'var(--text-primary)' : 'var(--text-muted)',
+                fontWeight: active ? 500 : 400,
+                transition: 'color 0.4s ease',
+              }}>
+                {label}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
+
+// ── 차트 로딩 스켈레톤 ──────────────────────────────────────────────
 
 // ── 공통 차트 옵션 ──────────────────────────────────────────────────
 function chartOptions(height: number) {
@@ -407,16 +485,23 @@ export default function Analytics({ portfolio }: { portfolio: PortfolioState }) 
         ))}
       </div>
 
-      {/* 차트/리스크 로딩 버튼 (idle일 때만) — 네트워크 작업은 명시적 클릭으로만 시작 */}
+      {/* 분석 시작 버튼 (idle일 때만) */}
       {chartStatus === 'idle' && (
         <div style={{
-          marginBottom: 24, padding: '20px', background: 'var(--bg-card)',
-          border: '1px dashed var(--border-primary)', borderRadius: 8,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap',
+          marginBottom: 24, padding: '28px 24px', background: 'var(--bg-card)',
+          border: '1px solid var(--border-primary)', borderRadius: 16,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
+          animation: 'fadeSlideIn 0.3s ease',
         }}>
-          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-            리스크 지표 · 벤치마크 비교 · 자산 추이 차트는 월간 시세를 추가로 불러옵니다.
-            {usdKrw <= 0 && <span style={{ color: 'var(--text-muted)' }}> (환율 로딩 중...)</span>}
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 }}>
+              심층 분석
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+              리스크 지표 · 벤치마크 비교 · 자산 추이 차트를 생성합니다<br />
+              월간 시세 데이터를 추가로 불러옵니다
+              {usdKrw <= 0 && <span style={{ color: 'var(--text-muted)' }}> · 환율 로딩 중...</span>}
+            </div>
           </div>
           <button
             onClick={() => loadCharts()}
@@ -424,25 +509,28 @@ export default function Analytics({ portfolio }: { portfolio: PortfolioState }) 
             style={{
               background: usdKrw <= 0 ? 'var(--bg-tertiary)' : 'var(--accent, #1f6feb)',
               border: 'none', color: '#fff',
-              padding: '8px 18px', borderRadius: 6,
+              padding: '10px 28px', borderRadius: 980,
               cursor: usdKrw <= 0 ? 'default' : 'pointer',
-              fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap',
+              fontSize: 14, fontWeight: 600, letterSpacing: '-0.01em',
+              transition: 'opacity 0.2s',
             }}
+            onMouseEnter={e => { if (usdKrw > 0) (e.target as HTMLElement).style.opacity = '0.85'; }}
+            onMouseLeave={e => { (e.target as HTMLElement).style.opacity = '1'; }}
           >
-            차트 불러오기
+            분석 시작
           </button>
         </div>
       )}
 
+      {/* 분석 진행 로더 */}
+      {chartStatus === 'loading' && <AnalysisLoader />}
+
       {/* 리스크 지표 카드 (클릭 → 계산 과정) — 차트 로딩 시작 후에만 표시 */}
-      {chartStatus !== 'idle' && (
+      {chartStatus === 'done' && (
       <div style={{ marginBottom: 24 }}>
         <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 10, letterSpacing: '0.04em' }}>
           리스크 지표 &middot; S&amp;P500 벤치마크 &middot; SOFR 무위험금리 &middot;{' '}
-          {chartStatus === 'loading'
-            ? <span style={{ color: 'var(--text-muted)' }}>차트 데이터 로딩 중...</span>
-            : <span style={{ color: 'var(--text-muted)' }}>카드 클릭 시 계산 과정 표시</span>
-          }
+          <span style={{ color: 'var(--text-muted)' }}>카드 클릭 시 계산 과정 표시</span>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
           {riskCards.map((c) => {
@@ -477,46 +565,40 @@ export default function Analytics({ portfolio }: { portfolio: PortfolioState }) 
       {/* 벤치마크 비교 차트 */}
       {chartStatus !== 'idle' && (
       <div style={{ marginBottom: 24 }}>
-        {chartStatus === 'loading'
-          ? <ChartSkeleton label="벤치마크 비교 (100 기준, TWR)" height={280} />
-          : (
-            <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>시작일</span>
-                <input
-                  type="date"
-                  value={benchmarkStart}
-                  min={benchmarkData?.portfolio[0]?.date ?? ''}
-                  max={new Date().toISOString().slice(0, 10)}
-                  onChange={e => setBenchmarkStart(e.target.value)}
-                  style={{
-                    background: 'var(--bg-tertiary)', border: '1px solid var(--border-primary)',
-                    borderRadius: 4, padding: '3px 8px', color: 'var(--text-primary)', fontSize: 12,
-                    cursor: 'pointer',
-                  }}
-                />
-                {benchmarkData?.portfolio[0]?.date && benchmarkStart !== benchmarkData.portfolio[0].date && (
-                  <button
-                    onClick={() => setBenchmarkStart(benchmarkData!.portfolio[0].date)}
-                    style={{
-                      background: 'none', border: '1px solid var(--border-primary)', borderRadius: 4,
-                      padding: '3px 8px', color: 'var(--text-secondary)', fontSize: 11, cursor: 'pointer',
-                    }}
-                  >처음으로</button>
-                )}
-              </div>
-              <BenchmarkChart series={benchmarkSeriesData} />
-            </>
-          )}
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>시작일</span>
+            <input
+              type="date"
+              value={benchmarkStart}
+              min={benchmarkData?.portfolio[0]?.date ?? ''}
+              max={new Date().toISOString().slice(0, 10)}
+              onChange={e => setBenchmarkStart(e.target.value)}
+              style={{
+                background: 'var(--bg-tertiary)', border: '1px solid var(--border-primary)',
+                borderRadius: 4, padding: '3px 8px', color: 'var(--text-primary)', fontSize: 12,
+                cursor: 'pointer',
+              }}
+            />
+            {benchmarkData?.portfolio[0]?.date && benchmarkStart !== benchmarkData.portfolio[0].date && (
+              <button
+                onClick={() => setBenchmarkStart(benchmarkData!.portfolio[0].date)}
+                style={{
+                  background: 'none', border: '1px solid var(--border-primary)', borderRadius: 4,
+                  padding: '3px 8px', color: 'var(--text-secondary)', fontSize: 11, cursor: 'pointer',
+                }}
+              >처음으로</button>
+            )}
+          </div>
+          <BenchmarkChart series={benchmarkSeriesData} />
+        </>
       </div>
       )}
 
       {/* 자산 총액 + 원금 추이 */}
-      {chartStatus !== 'idle' && (
+      {chartStatus === 'done' && (
       <div style={{ marginBottom: 24 }}>
-        {chartStatus === 'loading'
-          ? <ChartSkeleton label="자산 총액 추이 (KRW)" height={220} />
-          : <AssetChart valueData={valueData} principalData={principalData} />}
+        <AssetChart valueData={valueData} principalData={principalData} />
       </div>
       )}
 
