@@ -50,7 +50,9 @@ async function fetchYahoo(symbol: string): Promise<YahooResult> {
     const j = await res.json();
     const meta = j?.chart?.result?.[0]?.meta;
     const price = meta?.regularMarketPrice;
-    const prevClose = meta?.chartPreviousClose ?? meta?.previousClose ?? null;
+    // previousClose(비조정)를 우선 사용. chartPreviousClose는 배당/분할 조정된 값이라
+    // 브로커 표시값과 달라질 수 있으므로 폴백으로만 사용.
+    const prevClose = meta?.previousClose ?? meta?.chartPreviousClose ?? null;
     return {
       price: typeof price === 'number' && price > 0 ? price : null,
       name: meta?.longName ?? meta?.shortName,
@@ -85,8 +87,14 @@ async function fetchNaver(code: string): Promise<NaverResult> {
     }
     const data = (j as any)?.result?.areas?.[0]?.datas?.[0];
     if (!data) return { price: null, prevClose: null };
-    const price = Number(data.sv);
-    const prevClose = Number(data.ov);
+    // 네이버 polling API 필드 (실측 검증):
+    //   nv  = 현재가 (current price)
+    //   sv  = 전일종가 (= pcv, previous close)
+    //   pcv = 전일종가
+    //   cr  = 등락률(%), cv = 등락폭, ov = 시가, hv/lv = 고가/저가
+    // 과거 코드는 sv(현재가)와 nv(전일종가)를 반대로 사용해 등락률 부호가 뒤집혔다.
+    const price = Number(data.nv);
+    const prevClose = Number(data.pcv ?? data.sv);
     return {
       price: isFinite(price) && price > 0 ? price : null,
       name: typeof data.nm === 'string' ? data.nm : undefined,

@@ -3,13 +3,21 @@ import { createChart, CandlestickSeries, LineSeries } from 'lightweight-charts';
 import type { IChartApi } from 'lightweight-charts';
 import { toChartSymbol } from '../lib/prices';
 
-// lightweight-charts는 var(--x) 같은 CSS 변수 참조를 해석하지 못하므로
-// 실제 색상 값으로 변환해서 넘겨야 한다.
-function cssVar(name: string, fallback: string): string {
-  if (typeof window === 'undefined') return fallback;
-  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  return v || fallback;
+type Theme = 'light' | 'dark';
+
+function chartColors(theme: Theme) {
+  const dark = theme === 'dark';
+  return {
+    bg:     dark ? '#0d1117' : '#ffffff',
+    text:   dark ? '#8b949e' : '#656d76',
+    grid:   dark ? '#21262d' : '#eaeef2',
+    border: dark ? '#30363d' : '#d0d7de',
+  };
 }
+
+// 상승/하락 색상 (한국 증권 관례: 상승=빨강, 하락=파랑). 테마에 무관하게 동일.
+const UP_COLOR = '#cf222e';
+const DOWN_COLOR = '#1f6feb';
 
 type CandleTime = string | number;
 
@@ -24,6 +32,7 @@ interface Candle {
 interface Props {
   ticker: string;
   name: string;
+  theme?: Theme;
 }
 
 type Interval = '1h' | '1d' | '1wk' | '1mo';
@@ -135,7 +144,7 @@ async function fetchCandles(yahooSym: string, iv: Interval, fetchRange: string):
     const timestamps: number[] = result.timestamp ?? [];
     const quote = result.indicators?.quote?.[0] ?? {};
     const seen = new Set<CandleTime>();
-    return timestamps
+    const candles = timestamps
       .map((ts, i) => ({
         time: (iv === '1h' ? ts : new Date(ts * 1000).toISOString().slice(0, 10)) as CandleTime,
         open:  (quote.open  as number[])[i],
@@ -158,13 +167,41 @@ async function fetchCandles(yahooSym: string, iv: Interval, fetchRange: string):
           ? a.time - b.time
           : (a.time as string).localeCompare(b.time as string)
       );
+
+    // 일봉(1d): 오늘 진행 중인 캔들은 close가 null인 경우가 많아 위 필터에서 제거된다.
+    // 그 결과 마지막 캔들이 "어제"가 되어 차트가 하루 밀려 보인다.
+    // meta의 실시간 시세로 오늘 캔들이 없으면 직접 주입한다.
+    if (iv === '1d' && result.meta) {
+      const meta = result.meta;
+      const today = new Date().toISOString().slice(0, 10);
+      const hasToday = candles.some(c => c.time === today);
+      const livePrice: number = meta.regularMarketPrice;
+      if (!hasToday && typeof livePrice === 'number' && livePrice > 0) {
+        const marketTime: number | undefined = meta.regularMarketTime;
+        const marketDate = marketTime
+          ? new Date(marketTime * 1000).toISOString().slice(0, 10)
+          : null;
+        // 시세 시각이 오늘일 때만 주입 (장 마감 후 다음날 새벽 등 오인 방지)
+        if (marketDate === today) {
+          candles.push({
+            time: today as CandleTime,
+            open: meta.regularMarketOpen ?? meta.chartPreviousClose ?? livePrice,
+            high: meta.regularMarketDayHigh ?? livePrice,
+            low:  meta.regularMarketDayLow  ?? livePrice,
+            close: livePrice,
+          });
+        }
+      }
+    }
+
+    return candles;
   } catch {
     return [];
   }
 }
 
 
-export default function ChartPanel({ ticker, name }: Props) {
+export default function ChartPanel({ ticker, name, theme = 'dark' }: Props) {
   const containerRef   = useRef<HTMLDivElement>(null);
   const chartRef       = useRef<IChartApi | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -237,19 +274,20 @@ export default function ChartPanel({ ticker, name }: Props) {
 
     // Explicit width so the chart measures synchronously on mount. Never use autoSize.
     const w = containerRef.current.clientWidth || 800;
+    const c = chartColors(theme);
     const chart = createChart(containerRef.current, {
       width:  w,
       height: 340,
-      layout:          { background: { color: cssVar('--bg-primary', '#0d1117') }, textColor: cssVar('--text-secondary', '#8b949e') },
-      grid:            { vertLines: { color: cssVar('--bg-tertiary', '#21262d') }, horzLines: { color: cssVar('--bg-tertiary', '#21262d') } },
-      timeScale:       { borderColor: cssVar('--border-primary', '#30363d'), timeVisible: iv === '1h' },
-      rightPriceScale: { borderColor: cssVar('--border-primary', '#30363d') },
+      layout:          { background: { color: c.bg }, textColor: c.text },
+      grid:            { vertLines: { color: c.grid }, horzLines: { color: c.grid } },
+      timeScale:       { borderColor: c.border, timeVisible: iv === '1h' },
+      rightPriceScale: { borderColor: c.border },
       crosshair:       { mode: 1 },
     });
     chartRef.current = chart;
 
-    const up = cssVar('--up', '#cf222e');
-    const down = cssVar('--down', '#1f6feb');
+    const up = UP_COLOR;
+    const down = DOWN_COLOR;
     const cs = chart.addSeries(CandlestickSeries, {
       upColor: up, downColor: down,
       borderUpColor: up, borderDownColor: down,
@@ -291,7 +329,7 @@ export default function ChartPanel({ ticker, name }: Props) {
       maSeriesRef.current  = [];
       chart.remove();
     };
-  }, [ticker, iv]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ticker, iv, theme]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleScope(scopeKey: string) {
     setActiveScope(scopeKey);
@@ -318,8 +356,9 @@ export default function ChartPanel({ ticker, name }: Props) {
 
   const scopes = SCOPES[iv];
 
+  const c = chartColors(theme);
   return (
-    <div style={{ padding: '12px 16px 16px', background: 'var(--bg-primary)', borderTop: '1px solid var(--bg-tertiary)' }}>
+    <div style={{ padding: '12px 16px 16px', background: c.bg, borderTop: `1px solid ${c.grid}` }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
         <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>
           {name} {INTERVAL_LABELS[iv]}
@@ -370,7 +409,7 @@ export default function ChartPanel({ ticker, name }: Props) {
           <div style={{
             position: 'absolute', inset: 0, height: 340,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'var(--bg-primary)', color: 'var(--text-secondary)', fontSize: 12,
+            background: c.bg, color: c.text, fontSize: 12,
           }}>
             {error ? '차트 데이터를 불러올 수 없습니다.' : '차트 로딩 중...'}
           </div>

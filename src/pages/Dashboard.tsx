@@ -9,6 +9,7 @@ type PortfolioState = ReturnType<typeof usePortfolio>;
 
 interface Props {
   portfolio: PortfolioState;
+  theme?: 'light' | 'dark';
 }
 
 const fmtKrw = (n: number) => n.toLocaleString('ko-KR') + '원';
@@ -42,7 +43,7 @@ function nativeChange(ticker: string, krwChange: number, usdKrw: number): string
   return (v >= 0 ? '+' : '-') + '$' + Math.abs(v).toFixed(2);
 }
 
-export default function Dashboard({ portfolio }: Props) {
+export default function Dashboard({ portfolio, theme = 'dark' }: Props) {
   const { transactions, holdings, summary, usdKrw, status, isRefreshing, error, lastUpdated, reload, updateCash } = portfolio;
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
   const [tab, setTab] = useState<'시세' | '평가'>('시세');
@@ -306,7 +307,7 @@ export default function Dashboard({ portfolio }: Props) {
       />
       {selectedMarket && (
         <div style={{ marginBottom: 16, background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, overflow: 'hidden' }}>
-          <ChartPanel ticker={selectedMarket.sym} name={selectedMarket.label} />
+          <ChartPanel ticker={selectedMarket.sym} name={selectedMarket.label} theme={theme} />
         </div>
       )}
 
@@ -463,7 +464,7 @@ export default function Dashboard({ portfolio }: Props) {
                     {isSelected && (
                       <tr key={`${h.ticker}-chart`}>
                         <td colSpan={8} style={{ padding: 0 }}>
-                          <ChartPanel ticker={h.ticker} name={h.name} />
+                          <ChartPanel ticker={h.ticker} name={h.name} theme={theme} />
                         </td>
                       </tr>
                     )}
@@ -538,7 +539,7 @@ export default function Dashboard({ portfolio }: Props) {
                     {isSelected && (
                       <tr key={`${h.ticker}-chart`}>
                         <td colSpan={9} style={{ padding: 0 }}>
-                          <ChartPanel ticker={h.ticker} name={h.name} />
+                          <ChartPanel ticker={h.ticker} name={h.name} theme={theme} />
                         </td>
                       </tr>
                     )}

@@ -97,11 +97,14 @@ export default function MarketBar({ selected, onSelect }: Props) {
             key={sym}
             onClick={() => onSelect?.(sym, label)}
             style={{
-              background: isSelected ? '#1c2128' : 'var(--bg-card)',
+              // 선택 시 카드 배경은 그대로 두고(라이트모드에서 어두워지는 현상 방지)
+              // accent 보더 + 은은한 accent 외곽 글로우로만 강조한다.
+              background: 'var(--bg-card)',
               border: '1px solid ' + (isSelected ? 'var(--accent)' : 'var(--border-primary)'),
+              boxShadow: isSelected ? '0 0 0 1px var(--accent)' : 'none',
               borderRadius: 8, padding: '10px 14px', minWidth: 148, flexShrink: 0,
               cursor: onSelect ? 'pointer' : 'default',
-              transition: 'border-color 0.15s',
+              transition: 'border-color 0.15s, box-shadow 0.15s',
             }}
           >
             <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 2 }}>{label}</div>
