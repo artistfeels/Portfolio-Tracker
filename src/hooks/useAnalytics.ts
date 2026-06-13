@@ -3,7 +3,7 @@ import { useMemo, useState, useCallback, useRef } from 'react';
 import { calcPortfolioIrr, calcHoldingIrrs, calcRiskRatios, calcTwr, buildIndexFrom } from '../lib/calc';
 import type { RiskRatiosDetailed } from '../lib/calc';
 import { fetchSofr, fetchSpxWeekly, fetchKospiWeekly } from '../lib/market';
-import { buildPortfolioHistory } from '../lib/history';
+import { buildPortfolioHistory, calcInvestedAtDate } from '../lib/history';
 import type { Transaction, HoldingWithPrice, HistoryPoint, IrrResult } from '../lib/types';
 
 export type ChartStatus = 'idle' | 'loading' | 'done' | 'error';
@@ -133,6 +133,20 @@ export function useAnalytics(
         withBudget(fetchKospiWeekly(benchmarkPeriod1, period2), BUDGET, [] as { date: string; close: number }[]),
       ]);
 
+      // 마지막 포인트를 실시간 보유 평가액으로 교체 — 월간 종가와 실시간의 차이 제거
+      const today = new Date().toISOString().slice(0, 10);
+      const currentValue = holdings
+        .filter(h => h.ticker !== 'CASH')
+        .reduce((sum, h) => sum + h.market_value_krw, 0);
+      const currentInvested = calcInvestedAtDate(txsSorted, today);
+      if (currentValue > 0) {
+        if (hist.length > 0 && hist[hist.length - 1].date === today) {
+          hist[hist.length - 1] = { date: today, value_krw: Math.round(currentValue), invested_krw: Math.round(currentInvested) };
+        } else {
+          hist.push({ date: today, value_krw: Math.round(currentValue), invested_krw: Math.round(currentInvested) });
+        }
+      }
+
       setHistory(hist);
 
       const twrPts = calcTwr(hist);
@@ -182,7 +196,7 @@ export function useAnalytics(
     } finally {
       loadingRef.current = false;
     }
-  }, [txsSorted, usdKrw]);
+  }, [txsSorted, usdKrw, holdings]);
 
   return {
     summary: baseSummary,
