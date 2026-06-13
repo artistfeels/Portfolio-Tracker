@@ -148,7 +148,9 @@ export function usePortfolio() {
         updated = hasCash
           ? updated.map(h => h.ticker === 'CASH' ? cashEntry : h)
           : [...updated, cashEntry];
-        const sorted = [...updated].sort((a, b) => b.market_value_krw - a.market_value_krw);
+        const sorted = silent
+          ? updated
+          : [...updated].sort((a, b) => b.market_value_krw - a.market_value_krw);
         setSummary(calcSummary(sorted));
         return sorted;
       });

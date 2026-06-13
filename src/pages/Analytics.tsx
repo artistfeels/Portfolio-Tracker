@@ -87,72 +87,80 @@ function AnalysisLoader() {
 
   return (
     <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center',
-      padding: '52px 24px', gap: 36,
-      background: 'var(--bg-card)', borderRadius: 16,
-      border: '1px solid var(--border-primary)',
-      marginBottom: 24,
-      animation: 'fadeSlideIn 0.35s ease',
+      position: 'relative', overflow: 'hidden',
+      borderRadius: 20, marginBottom: 24,
+      background: '#06060f', minHeight: 380,
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      border: '1px solid rgba(255,255,255,0.07)',
+      animation: 'fadeSlideIn 0.4s ease',
     }}>
-      {/* 링 스피너 */}
-      <div style={{ position: 'relative', width: 52, height: 52 }}>
-        <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '2px solid var(--border-primary)' }} />
-        <div style={{
-          position: 'absolute', inset: 0, borderRadius: '50%',
-          border: '2px solid transparent', borderTopColor: 'var(--accent, #58a6ff)',
-          animation: 'spin 0.75s cubic-bezier(0.4, 0, 0.2, 1) infinite',
-        }} />
-      </div>
+      {/* Aurora orbs */}
+      <div className="aurora-orb aurora-orb-1" />
+      <div className="aurora-orb aurora-orb-2" />
+      <div className="aurora-orb aurora-orb-3" />
+      <div className="aurora-orb aurora-orb-4" />
+      <div className="aurora-orb aurora-orb-5" />
 
-      {/* 제목 */}
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '-0.02em', marginBottom: 6 }}>
+      {/* 내용 */}
+      <div style={{ position: 'relative', zIndex: 2, textAlign: 'center', padding: '0 48px' }}>
+        {/* 레인보우 스피너 */}
+        <div style={{ position: 'relative', width: 68, height: 68, margin: '0 auto 32px' }}>
+          <div className="aurora-ring" />
+          <div className="aurora-ring-inner" />
+        </div>
+
+        {/* 그라디언트 텍스트 */}
+        <div style={{
+          fontSize: 21, fontWeight: 700, letterSpacing: '-0.03em', marginBottom: 8,
+          background: 'linear-gradient(120deg, #fff 0%, #c4b5fd 35%, #93c5fd 65%, #6ee7b7 100%)',
+          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+        }}>
           포트폴리오 분석 중
         </div>
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginBottom: 44, lineHeight: 1.7 }}>
           월간 시세 · 리스크 지표 · 벤치마크를 수집합니다
         </div>
-      </div>
 
-      {/* 단계 표시 */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 260 }}>
-        {ANALYSIS_STEPS.map((label, i) => {
-          const done = i < step;
-          const active = i === step;
-          return (
-            <div key={label} style={{
-              display: 'flex', alignItems: 'center', gap: 12,
-              opacity: i <= step ? 1 : 0.25,
-              transition: 'opacity 0.5s ease',
-              animation: i === step ? 'fadeSlideIn 0.3s ease' : undefined,
-            }}>
-              <div style={{
-                width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: done ? 'var(--accent, #58a6ff)' : 'transparent',
-                border: done ? 'none' : '1.5px solid var(--border-primary)',
-                transition: 'all 0.4s ease',
+        {/* 단계 표시 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, width: 240, margin: '0 auto', textAlign: 'left' }}>
+          {ANALYSIS_STEPS.map((label, i) => {
+            const done = i < step;
+            const active = i === step;
+            return (
+              <div key={label} style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                opacity: i <= step ? 1 : 0.28,
+                transition: 'opacity 0.6s ease',
               }}>
-                {done && <span style={{ fontSize: 11, color: '#fff', fontWeight: 700 }}>✓</span>}
-                {active && (
-                  <div style={{
-                    width: 7, height: 7, borderRadius: '50%',
-                    background: 'var(--accent, #58a6ff)',
-                    animation: 'pulse 1.2s ease-in-out infinite',
-                  }} />
-                )}
+                <div style={{
+                  width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: done
+                    ? 'linear-gradient(135deg, #a78bfa, #60a5fa)'
+                    : 'transparent',
+                  border: done ? 'none' : `1.5px solid ${active ? 'rgba(167,139,250,0.7)' : 'rgba(255,255,255,0.18)'}`,
+                  boxShadow: done ? '0 0 12px rgba(167,139,250,0.55)' : 'none',
+                  transition: 'all 0.45s ease',
+                }}>
+                  {done && <span style={{ fontSize: 11, color: '#fff', fontWeight: 700 }}>✓</span>}
+                  {active && (
+                    <div style={{
+                      width: 7, height: 7, borderRadius: '50%',
+                      background: 'linear-gradient(135deg, #a78bfa, #60a5fa)',
+                      animation: 'pulse 1.1s ease-in-out infinite',
+                    }} />
+                  )}
+                </div>
+                <span style={{
+                  fontSize: 13, color: i <= step ? 'rgba(255,255,255,0.88)' : 'rgba(255,255,255,0.3)',
+                  fontWeight: active ? 500 : 400, transition: 'color 0.5s ease',
+                }}>
+                  {label}
+                </span>
               </div>
-              <span style={{
-                fontSize: 13, letterSpacing: '-0.01em',
-                color: i <= step ? 'var(--text-primary)' : 'var(--text-muted)',
-                fontWeight: active ? 500 : 400,
-                transition: 'color 0.4s ease',
-              }}>
-                {label}
-              </span>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -378,6 +386,7 @@ export default function Analytics({ portfolio }: { portfolio: PortfolioState }) 
   const [expandedCagr, setExpandedCagr] = useState(false);
   const [cagrYears, setCagrYears] = useState(5);
   const [expandedAlpha, setExpandedAlpha] = useState(false);
+  const [expandedExpected, setExpandedExpected] = useState(false);
   const [benchmarkStart, setBenchmarkStart] = useState<string>('');
   const benchmarkInitRef = useRef(false);
 
@@ -486,6 +495,12 @@ export default function Analytics({ portfolio }: { portfolio: PortfolioState }) 
 
   const sigma = riskDetail?.sigma_p_ann ?? null;
 
+  const expectedReturn = useMemo(() => {
+    if (!riskDetail) return null;
+    const { rfAnnual, beta: b, R_m_ann } = riskDetail;
+    return rfAnnual + (b ?? 0) * (R_m_ann - rfAnnual);
+  }, [riskDetail]);
+
   // usePortfolio가 거래내역 로딩에 실패한 경우에만 에러 표시.
   if (portfolioStatus === 'error') {
     return <div style={{ padding: 32, color: 'var(--up)' }}>오류: {portfolioError}</div>;
@@ -535,7 +550,7 @@ export default function Analytics({ portfolio }: { portfolio: PortfolioState }) 
 
       {/* 상단 요약 카드 + 확장 패널 */}
       <div style={{ marginBottom: 24 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
           {/* IRR 카드 */}
           <div
             onClick={() => setExpandedIrr(v => !v)}
@@ -556,6 +571,22 @@ export default function Analytics({ portfolio }: { portfolio: PortfolioState }) 
             </div>
             <div style={{ fontSize: 20, fontWeight: 700, color: (filteredPortfolioIrr ?? 0) >= 0 ? 'var(--up)' : 'var(--down)' }}>
               {fmtPct(filteredPortfolioIrr)}
+            </div>
+          </div>
+
+          {/* 기대수익률 카드 */}
+          <div
+            onClick={() => setExpandedExpected(v => !v)}
+            style={{
+              background: 'var(--bg-card)',
+              border: `1px solid ${expandedExpected ? 'var(--accent)' : 'var(--border-primary)'}`,
+              borderRadius: 8, padding: '16px 20px', cursor: 'pointer',
+              transition: 'border-color 0.15s',
+            }}
+          >
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>기대수익률 (CAPM)</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: expectedReturn === null ? 'var(--text-secondary)' : expectedReturn >= 0 ? 'var(--up)' : 'var(--down)' }}>
+              {expectedReturn === null ? '-' : fmtPct(expectedReturn)}
             </div>
           </div>
 
@@ -632,6 +663,33 @@ export default function Analytics({ portfolio }: { portfolio: PortfolioState }) 
               </div>
             )}
           </div>
+        )}
+
+        {/* 기대수익률 확장: CAPM 계산 과정 */}
+        {expandedExpected && (
+          riskDetail ? (
+            <div style={{ ...detailStyle, marginTop: 12 }}>
+              <div style={detailTitle}>기대수익률 (CAPM) 계산 과정</div>
+              <code style={detailCode}>
+                E(R_p) = R_f + β × (R_m − R_f){'\n'}
+                {'\n'}
+                R_f    = {(riskDetail.rfAnnual * 100).toFixed(2)}%  (SOFR 기간평균, 연간){'\n'}
+                β      = {(riskDetail.beta ?? 0).toFixed(3)}{'\n'}
+                R_m    = {(riskDetail.R_m_ann * 100).toFixed(2)}%  (S&P500 연환산 수익률){'\n'}
+                {'\n'}
+                E(R_p) = {(riskDetail.rfAnnual * 100).toFixed(2)}% + {(riskDetail.beta ?? 0).toFixed(3)} × ({(riskDetail.R_m_ann * 100).toFixed(2)}% − {(riskDetail.rfAnnual * 100).toFixed(2)}%){'\n'}
+                       = {expectedReturn !== null ? (expectedReturn * 100).toFixed(2) : '-'}%
+              </code>
+              <div style={detailNote}>
+                CAPM 기대수익률은 주어진 시장위험(β)을 감수하는 대가로 기대되는 수익률입니다.
+                실제 수익률(IRR)이 이를 상회할수록 알파(α)가 양수가 됩니다.
+              </div>
+            </div>
+          ) : (
+            <div style={{ marginTop: 12, padding: '12px 18px', background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', borderRadius: 6, fontSize: 12, color: 'var(--text-muted)' }}>
+              먼저 심층 분석을 실행하면 CAPM 계산 과정이 표시됩니다
+            </div>
+          )
         )}
 
         {/* MDD 확장: 연도별 MDD 바 차트 */}

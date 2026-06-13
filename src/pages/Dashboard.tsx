@@ -441,19 +441,19 @@ export default function Dashboard({ portfolio, theme = 'dark' }: Props) {
                       <td style={{ padding: '4px 8px', width: 120 }}>
                         {!isLoading && <SparkLine ticker={h.ticker} dailyChangePct={h.daily_change_pct} />}
                       </td>
-                      <td style={{ padding: '9px 14px', textAlign: 'right', color: 'var(--text-primary)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
-                        {isLoading ? <span style={{ color: 'var(--text-secondary)' }}>...</span> : nativePrice(h.ticker, h.current_price_krw, usdKrw)}
+                      <td style={{ padding: '9px 14px', textAlign: 'right', color: 'var(--text-primary)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', transition: 'color 0.4s ease' }}>
+                        {isLoading ? <span className="skeleton" style={{ display: 'inline-block', width: 64, height: 14 }} /> : nativePrice(h.ticker, h.current_price_krw, usdKrw)}
                       </td>
-                      <td style={{ padding: '9px 14px', textAlign: 'right', color: pctColor, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                      <td style={{ padding: '9px 14px', textAlign: 'right', color: pctColor, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', transition: 'color 0.4s ease' }}>
                         {isLoading || krwChange === null ? '-' : nativeChange(h.ticker, krwChange, usdKrw)}
                       </td>
-                      <td style={{ padding: '9px 14px', textAlign: 'right', color: pctColor, fontWeight: 600, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                      <td style={{ padding: '9px 14px', textAlign: 'right', color: pctColor, fontWeight: 600, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', transition: 'color 0.4s ease' }}>
                         {isLoading ? '-' : pct !== null ? fmtSign(pct) : '-'}
                       </td>
-                      <td style={{ padding: '9px 14px', textAlign: 'right', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                      <td style={{ padding: '9px 14px', textAlign: 'right', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', transition: 'color 0.4s ease' }}>
                         {fmtKrw(h.market_value_krw)}
                       </td>
-                      <td style={{ padding: '9px 14px', textAlign: 'right', color: holdingDailyPnl === null ? 'var(--text-secondary)' : holdingDailyPnl >= 0 ? 'var(--up)' : 'var(--down)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                      <td style={{ padding: '9px 14px', textAlign: 'right', color: holdingDailyPnl === null ? 'var(--text-secondary)' : holdingDailyPnl >= 0 ? 'var(--up)' : 'var(--down)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', transition: 'color 0.4s ease' }}>
                         {isLoading || holdingDailyPnl === null ? '-'
                           : (holdingDailyPnl >= 0 ? '+' : '') + fmtKrw(Math.round(holdingDailyPnl))}
                       </td>
@@ -517,19 +517,19 @@ export default function Dashboard({ portfolio, theme = 'dark' }: Props) {
                       <td style={{ padding: '9px 14px', textAlign: 'right', color: 'var(--text-primary)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
                         {fmtKrw(h.avg_price_krw)}
                       </td>
-                      <td style={{ padding: '9px 14px', textAlign: 'right', color: 'var(--text-primary)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
-                        {isLoading ? <span style={{ color: 'var(--text-secondary)' }}>...</span> : fmtKrw(h.current_price_krw)}
+                      <td style={{ padding: '9px 14px', textAlign: 'right', color: 'var(--text-primary)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', transition: 'color 0.4s ease' }}>
+                        {isLoading ? <span className="skeleton" style={{ display: 'inline-block', width: 72, height: 14 }} /> : fmtKrw(h.current_price_krw)}
                       </td>
-                      <td style={{ padding: '9px 14px', textAlign: 'right', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                      <td style={{ padding: '9px 14px', textAlign: 'right', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', transition: 'color 0.4s ease' }}>
                         {fmtKrw(h.market_value_krw)}
                       </td>
-                      <td style={{ padding: '9px 14px', textAlign: 'right', color: profitColor, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                      <td style={{ padding: '9px 14px', textAlign: 'right', color: profitColor, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', transition: 'color 0.4s ease' }}>
                         {(h.profit_krw >= 0 ? '+' : '') + fmtKrw(h.profit_krw)}
                       </td>
-                      <td style={{ padding: '9px 14px', textAlign: 'right', color: profitColor, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                      <td style={{ padding: '9px 14px', textAlign: 'right', color: profitColor, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', transition: 'color 0.4s ease' }}>
                         {fmtSign(h.profit_pct)}
                       </td>
-                      <td style={{ padding: '9px 14px', textAlign: 'right', color: irrColor, fontWeight: 600, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                      <td style={{ padding: '9px 14px', textAlign: 'right', color: irrColor, fontWeight: 600, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', transition: 'color 0.4s ease' }}>
                         {isLoading ? '-' : holdingIrr !== null ? fmtSign(holdingIrr * 100) : '-'}
                       </td>
                       <td style={{ padding: '9px 14px', textAlign: 'right', color: 'var(--text-secondary)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
