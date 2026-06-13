@@ -1,5 +1,8 @@
 {
   "rewrites": [
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    { "source": "/api/yahoo/:path*", "destination": "/api/yahoo/[...path]" },
+    { "source": "/api/naver/:path*", "destination": "/api/naver/[...path]" },
+    { "source": "/api/fred/:path*",  "destination": "/api/fred/[...path]"  },
+    { "source": "/((?!api/).*)",     "destination": "/index.html"           }
   ]
 }
