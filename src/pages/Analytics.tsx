@@ -101,10 +101,10 @@ function AnalysisLoader() {
     <div style={{
       position: 'relative', overflow: 'hidden',
       borderRadius: 20, marginBottom: 24,
-      background: '#080c14',
+      background: 'var(--bg-card)',
       minHeight: 420,
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      border: '1px solid rgba(255,255,255,0.05)',
+      border: '1px solid var(--border-primary)',
       animation: 'fadeSlideIn 0.4s ease',
     }}>
       {/* 배경 오로라 오브 */}
@@ -159,7 +159,7 @@ function AnalysisLoader() {
         }}>
           포트폴리오 분석 중
         </div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.38)', marginBottom: 44, lineHeight: 1.7 }}>
+        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 44, lineHeight: 1.7 }}>
           월간 시세 · 리스크 지표 · 벤치마크를 수집합니다
         </div>
 
@@ -171,15 +171,15 @@ function AnalysisLoader() {
             return (
               <div key={label} style={{
                 display: 'flex', alignItems: 'center', gap: 12,
-                opacity: i <= step ? 1 : 0.22,
+                opacity: i <= step ? 1 : 0.3,
                 transition: 'opacity 0.6s ease',
               }}>
                 <div style={{
                   width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   background: done ? 'linear-gradient(135deg, #a78bfa, #38bdf8)' : 'transparent',
-                  border: done ? 'none' : `1.5px solid ${active ? '#a78bfa' : 'rgba(255,255,255,0.14)'}`,
-                  boxShadow: done ? '0 0 14px rgba(167,139,250,0.7)' : active ? '0 0 8px rgba(167,139,250,0.35)' : 'none',
+                  border: done ? 'none' : `1.5px solid ${active ? '#a78bfa' : 'var(--border-primary)'}`,
+                  boxShadow: done ? '0 0 14px rgba(167,139,250,0.55)' : active ? '0 0 8px rgba(167,139,250,0.3)' : 'none',
                   transition: 'all 0.45s ease',
                 }}>
                   {done && <span style={{ fontSize: 11, color: '#fff', fontWeight: 700 }}>✓</span>}
@@ -187,14 +187,14 @@ function AnalysisLoader() {
                     <div style={{
                       width: 7, height: 7, borderRadius: '50%',
                       background: '#a78bfa',
-                      boxShadow: '0 0 8px #a78bfa, 0 0 16px rgba(167,139,250,0.5)',
+                      boxShadow: '0 0 8px #a78bfa',
                       animation: 'pulse 1.1s ease-in-out infinite',
                     }} />
                   )}
                 </div>
                 <span style={{
                   fontSize: 13,
-                  color: done ? '#fff' : active ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.28)',
+                  color: i <= step ? 'var(--text-primary)' : 'var(--text-muted)',
                   fontWeight: active ? 500 : 400,
                   transition: 'color 0.5s ease',
                 }}>
@@ -1006,8 +1006,60 @@ export default function Analytics({ portfolio }: { portfolio: PortfolioState }) 
       </div>
       )}
 
+      {/* IRR 수익 기여도 차트 */}
+      {holdingIrrs.length > 0 && (() => {
+        const totalInvested = holdingIrrs.reduce((s, h) => s + h.invested_krw, 0);
+        if (totalInvested === 0) return null;
+        const rawList = holdingIrrs.map(h => ({
+          ...h,
+          weight: h.invested_krw / totalInvested,
+          rawC: (h.irr ?? 0) * (h.invested_krw / totalInvested),
+        }));
+        const rawSum = rawList.reduce((s, h) => s + h.rawC, 0);
+        const portIrr = summary.portfolioIrr ?? rawSum;
+        const scale = Math.abs(rawSum) > 0.0001 ? portIrr / rawSum : 1;
+        const contribs = rawList
+          .map(h => ({ ...h, contrib: h.rawC * scale }))
+          .sort((a, b) => b.contrib - a.contrib);
+        const maxAbs = Math.max(...contribs.map(h => Math.abs(h.contrib)), 0.001);
+
+        return (
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 14, overflow: 'hidden', marginBottom: 24 }}>
+            <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--bg-tertiary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>IRR 수익 기여도</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>원금비중 × 개별IRR → 포트폴리오 IRR 기여분</div>
+            </div>
+            <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {contribs.map(h => {
+                const c = h.contrib;
+                const color = c >= 0 ? 'var(--up)' : 'var(--down)';
+                const barW = Math.abs(c) / maxAbs * 100;
+                return (
+                  <div key={h.ticker} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 88, fontSize: 12, fontWeight: 500, color: 'var(--text-primary)', textAlign: 'right', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.name}</div>
+                    <div style={{ width: 38, fontSize: 10, color: 'var(--text-muted)', textAlign: 'right', flexShrink: 0 }}>{(h.weight * 100).toFixed(0)}%</div>
+                    <div style={{ flex: 1, height: 22, background: 'var(--bg-tertiary)', borderRadius: 6, overflow: 'hidden' }}>
+                      <div style={{ width: `${barW}%`, height: '100%', background: color, borderRadius: 6, opacity: 0.82, transition: 'width 0.6s ease', minWidth: 2 }} />
+                    </div>
+                    <div style={{ width: 58, fontSize: 12, color, textAlign: 'right', flexShrink: 0, fontWeight: 700 }}>
+                      {c >= 0 ? '+' : ''}{(c * 100).toFixed(2)}%p
+                    </div>
+                  </div>
+                );
+              })}
+              <div style={{ borderTop: '1px dashed var(--border-primary)', paddingTop: 8, display: 'flex', justifyContent: 'flex-end', gap: 10, alignItems: 'center' }}>
+                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>포트폴리오 IRR 합계</span>
+                <span style={{ fontSize: 15, fontWeight: 700, color: (portIrr ?? 0) >= 0 ? 'var(--up)' : 'var(--down)' }}>
+                  {portIrr !== null ? ((portIrr >= 0 ? '+' : '') + (portIrr * 100).toFixed(2) + '%') : '-'}
+                </span>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* 종목별 IRR 테이블 */}
-      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, overflow: 'hidden' }}>
+      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 14, overflow: 'hidden' }}>
         <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--bg-tertiary)', fontSize: 13, fontWeight: 600 }}>종목별 IRR</div>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>

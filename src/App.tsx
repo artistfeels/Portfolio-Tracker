@@ -152,7 +152,7 @@ export default function App() {
   const toggleTheme = () => {
     document.documentElement.classList.add('theme-transitioning');
     setTheme(t => (t === 'dark' ? 'light' : 'dark'));
-    setTimeout(() => document.documentElement.classList.remove('theme-transitioning'), 1400);
+    setTimeout(() => document.documentElement.classList.remove('theme-transitioning'), 700);
   };
 
   if (session === undefined) return null; // 세션 확인 중 (순간적)

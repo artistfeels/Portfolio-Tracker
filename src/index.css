@@ -102,10 +102,10 @@
 .theme-transitioning,
 .theme-transitioning * {
   transition:
-    background-color 1.3s ease,
-    color 1.3s ease,
-    border-color 1.3s ease,
-    box-shadow 1.3s ease !important;
+    background-color 0.65s ease,
+    color 0.65s ease,
+    border-color 0.65s ease,
+    box-shadow 0.65s ease !important;
 }
 
 /* ── Aurora 로더 ─────────────────────────────────────────────────── */
@@ -208,7 +208,7 @@
 .energy-ring-outer {
   inset: 0;
   background:
-    linear-gradient(#080c14, #080c14) padding-box,
+    linear-gradient(var(--bg-card), var(--bg-card)) padding-box,
     conic-gradient(from 0deg, #5e5ce6, #bf5af2, #ff6363, #ffd60a, #30d158, #0a84ff, #5e5ce6) border-box;
   animation: spin 2.2s linear infinite;
 }
@@ -216,7 +216,7 @@
   inset: 16px;
   border-width: 1.5px;
   background:
-    linear-gradient(#080c14, #080c14) padding-box,
+    linear-gradient(var(--bg-card), var(--bg-card)) padding-box,
     conic-gradient(from 120deg, #30d158, #0a84ff, #5e5ce6, #bf5af2, #ff6363, #30d158) border-box;
   animation: spinReverse 3.4s linear infinite;
   opacity: 0.75;
