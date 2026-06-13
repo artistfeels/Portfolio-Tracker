@@ -89,9 +89,9 @@ function AnalysisLoader() {
     <div style={{
       position: 'relative', overflow: 'hidden',
       borderRadius: 20, marginBottom: 24,
-      background: '#06060f', minHeight: 380,
+      background: 'var(--bg-card)', minHeight: 380,
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      border: '1px solid rgba(255,255,255,0.07)',
+      border: '1px solid var(--border-primary)',
       animation: 'fadeSlideIn 0.4s ease',
     }}>
       {/* Aurora orbs */}
@@ -112,12 +112,12 @@ function AnalysisLoader() {
         {/* 그라디언트 텍스트 */}
         <div style={{
           fontSize: 21, fontWeight: 700, letterSpacing: '-0.03em', marginBottom: 8,
-          background: 'linear-gradient(120deg, #fff 0%, #c4b5fd 35%, #93c5fd 65%, #6ee7b7 100%)',
+          background: 'linear-gradient(120deg, #a78bfa 0%, #60a5fa 50%, #34d399 100%)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
         }}>
           포트폴리오 분석 중
         </div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginBottom: 44, lineHeight: 1.7 }}>
+        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 44, lineHeight: 1.7 }}>
           월간 시세 · 리스크 지표 · 벤치마크를 수집합니다
         </div>
 
@@ -129,7 +129,7 @@ function AnalysisLoader() {
             return (
               <div key={label} style={{
                 display: 'flex', alignItems: 'center', gap: 12,
-                opacity: i <= step ? 1 : 0.28,
+                opacity: i <= step ? 1 : 0.35,
                 transition: 'opacity 0.6s ease',
               }}>
                 <div style={{
@@ -138,8 +138,8 @@ function AnalysisLoader() {
                   background: done
                     ? 'linear-gradient(135deg, #a78bfa, #60a5fa)'
                     : 'transparent',
-                  border: done ? 'none' : `1.5px solid ${active ? 'rgba(167,139,250,0.7)' : 'rgba(255,255,255,0.18)'}`,
-                  boxShadow: done ? '0 0 12px rgba(167,139,250,0.55)' : 'none',
+                  border: done ? 'none' : `1.5px solid ${active ? '#a78bfa' : 'var(--border-primary)'}`,
+                  boxShadow: done ? '0 0 12px rgba(167,139,250,0.45)' : 'none',
                   transition: 'all 0.45s ease',
                 }}>
                   {done && <span style={{ fontSize: 11, color: '#fff', fontWeight: 700 }}>✓</span>}
@@ -152,7 +152,7 @@ function AnalysisLoader() {
                   )}
                 </div>
                 <span style={{
-                  fontSize: 13, color: i <= step ? 'rgba(255,255,255,0.88)' : 'rgba(255,255,255,0.3)',
+                  fontSize: 13, color: i <= step ? 'var(--text-primary)' : 'var(--text-muted)',
                   fontWeight: active ? 500 : 400, transition: 'color 0.5s ease',
                 }}>
                   {label}
