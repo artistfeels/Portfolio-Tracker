@@ -250,7 +250,7 @@ export default function Watchlist({ usdKrw, isMobile, theme = 'dark' }: Props) {
 
       {/* 목록 — 모바일은 카드 */}
       {tableExists && items.length > 0 && isMobile && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
           {items.map(item => {
             const cur = item.current_price_krw;
             const tgt = item.target_price_krw;
@@ -259,50 +259,51 @@ export default function Watchlist({ usdKrw, isMobile, theme = 'dark' }: Props) {
             const reached = gap != null && Math.abs(gap) < 0.5;
             const isKorean = /^\d{6}$/.test(item.ticker);
             return (
-              <div key={item.id} style={{ background: reached ? 'rgba(207,34,46,0.06)' : 'var(--bg-card)', border: `1px solid ${reached ? 'var(--up)' : 'var(--border-primary)'}`, borderRadius: 10, padding: '12px 14px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+              <div key={item.id} style={{ background: reached ? 'rgba(207,34,46,0.06)' : 'var(--bg-card)', border: `1px solid ${reached ? 'var(--up)' : 'var(--border-primary)'}`, borderRadius: 8, padding: '7px 10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                   <div
-                    style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', flex: 1, minWidth: 0 }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', flex: 1, minWidth: 0 }}
                     onClick={() => { setTvTicker(toTvSymbol(item.ticker)); setTvName(item.name || item.ticker); }}
                   >
-                    <StockLogo ticker={item.ticker} name={item.name} size={32} />
+                    <StockLogo ticker={item.ticker} name={item.name} size={26} />
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--accent)', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--accent)', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {item.name || item.ticker}
                       </div>
-                      <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{item.ticker} · {item.region} · 📊 차트</div>
+                      <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>{item.ticker} · {item.region} · 📊</div>
                     </div>
                   </div>
-                  <button onClick={() => removeItem(item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, padding: '4px 6px', flexShrink: 0, minHeight: 36 }}>✕</button>
+                  <button onClick={() => removeItem(item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 14, padding: '2px 4px', flexShrink: 0 }}>✕</button>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px 8px' }}>
+                {/* 현재가·등락·목표 한 줄 */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '4px 6px', marginBottom: 5 }}>
                   <div>
-                    <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>현재가 (원)</div>
-                    <div style={{ fontSize: 14, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
-                      {item.loading ? <span className="skeleton" style={{ display: 'inline-block', width: 70, height: 13 }} /> : cur ? '₩' + cur.toLocaleString('ko-KR') : '–'}
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>현재가 ($)</div>
-                    <div style={{ fontSize: 14, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
-                      {item.loading ? <span className="skeleton" style={{ display: 'inline-block', width: 50, height: 13 }} /> : isKorean ? '–' : item.current_price_usd ? '$' + item.current_price_usd.toFixed(2) : '–'}
+                    <div style={{ fontSize: 8, color: 'var(--text-muted)' }}>현재가(원)</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                      {item.loading ? <span className="skeleton" style={{ display: 'inline-block', width: 50, height: 11 }} /> : cur ? '₩' + cur.toLocaleString('ko-KR') : '–'}
                     </div>
                   </div>
                   <div>
-                    <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>전일대비</div>
-                    <div style={{ fontSize: 14, fontWeight: chg != null ? 700 : 400, color: chg == null ? 'var(--text-muted)' : chg >= 0 ? UP : DOWN, fontVariantNumeric: 'tabular-nums' }}>
+                    <div style={{ fontSize: 8, color: 'var(--text-muted)' }}>현재가($)</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                      {item.loading ? <span className="skeleton" style={{ display: 'inline-block', width: 36, height: 11 }} /> : isKorean ? '–' : item.current_price_usd ? '$' + item.current_price_usd.toFixed(2) : '–'}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 8, color: 'var(--text-muted)' }}>전일대비</div>
+                    <div style={{ fontSize: 12, fontWeight: chg != null ? 700 : 400, color: chg == null ? 'var(--text-muted)' : chg >= 0 ? UP : DOWN, fontVariantNumeric: 'tabular-nums' }}>
                       {chg == null ? '–' : (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%'}
                     </div>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>목표까지</div>
-                    <div style={{ fontSize: 14, fontWeight: gap != null ? 700 : 400, color: gap == null ? 'var(--text-muted)' : gap >= 0 ? UP : DOWN, fontVariantNumeric: 'tabular-nums' }}>
-                      {gap == null ? '–' : reached ? '🎯 도달!' : (gap >= 0 ? '+' : '') + gap.toFixed(2) + '%'}
+                  <div>
+                    <div style={{ fontSize: 8, color: 'var(--text-muted)' }}>목표까지</div>
+                    <div style={{ fontSize: 12, fontWeight: gap != null ? 700 : 400, color: gap == null ? 'var(--text-muted)' : gap >= 0 ? UP : DOWN, fontVariantNumeric: 'tabular-nums' }}>
+                      {gap == null ? '–' : reached ? '🎯' : (gap >= 0 ? '+' : '') + gap.toFixed(1) + '%'}
                     </div>
                   </div>
                 </div>
-                <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 9, color: 'var(--text-muted)', flexShrink: 0 }}>목표가</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 8, color: 'var(--text-muted)', flexShrink: 0 }}>목표가</span>
                   {item.editingTarget ? (
                     <div style={{ display: 'flex', gap: 4, flex: 1 }}>
                       <input
@@ -312,15 +313,15 @@ export default function Watchlist({ usdKrw, isMobile, theme = 'dark' }: Props) {
                           if (e.key === 'Enter') saveTarget(item.id);
                           if (e.key === 'Escape') setItems(prev => prev.map(x => x.id === item.id ? { ...x, editingTarget: false } : x));
                         }}
-                        style={{ ...inputSt, flex: 1, padding: '7px 8px', fontSize: 13, minHeight: 36 }}
+                        style={{ ...inputSt, flex: 1, padding: '4px 8px', fontSize: 12 }}
                         placeholder="목표가(원)"
                       />
-                      <button onClick={() => saveTarget(item.id)} style={{ fontSize: 12, padding: '7px 14px', borderRadius: 6, background: 'var(--accent)', border: 'none', color: '#fff', cursor: 'pointer', minHeight: 36 }}>저장</button>
+                      <button onClick={() => saveTarget(item.id)} style={{ fontSize: 11, padding: '4px 10px', borderRadius: 5, background: 'var(--accent)', border: 'none', color: '#fff', cursor: 'pointer' }}>저장</button>
                     </div>
                   ) : (
                     <button
                       onClick={() => startEditTarget(item.id, item.target_price_krw)}
-                      style={{ background: 'none', border: `1px dashed ${tgt ? 'var(--border-primary)' : 'var(--text-muted)'}`, borderRadius: 6, padding: '7px 12px', cursor: 'pointer', color: tgt ? 'var(--text-primary)' : 'var(--text-muted)', fontSize: 13, fontVariantNumeric: 'tabular-nums', minHeight: 36, flex: 1, textAlign: 'left' }}
+                      style={{ background: 'none', border: `1px dashed ${tgt ? 'var(--border-primary)' : 'var(--text-muted)'}`, borderRadius: 5, padding: '4px 10px', cursor: 'pointer', color: tgt ? 'var(--text-primary)' : 'var(--text-muted)', fontSize: 12, fontVariantNumeric: 'tabular-nums', flex: 1, textAlign: 'left' }}
                     >
                       {tgt ? '₩' + tgt.toLocaleString('ko-KR') : '+ 목표가 설정'}
                     </button>

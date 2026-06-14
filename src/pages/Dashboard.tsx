@@ -580,7 +580,7 @@ export default function Dashboard({ portfolio, theme = 'dark', isMobile = false 
 
       {/* ── 모바일: 카드 레이아웃 (모든 정보 표시) ─────── */}
       {isMobile ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
           {sortedHoldings.map((h, i) => {
             const isLoading = h.price_source === 'loading';
             const pct = h.daily_change_pct;
@@ -594,8 +594,8 @@ export default function Dashboard({ portfolio, theme = 'dark', isMobile = false 
             const isSelected = selectedTicker === h.ticker;
             const Cell = ({ label, value, color }: { label: string; value: React.ReactNode; color?: string }) => (
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 9, color: 'var(--text-muted)', marginBottom: 2 }}>{label}</div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: color ?? 'var(--text-primary)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</div>
+                <div style={{ fontSize: 8, color: 'var(--text-muted)', marginBottom: 1 }}>{label}</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: color ?? 'var(--text-primary)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</div>
               </div>
             );
             return (
@@ -605,48 +605,48 @@ export default function Dashboard({ portfolio, theme = 'dark', isMobile = false 
                 style={{
                   background: isSelected ? 'var(--bg-tertiary)' : 'var(--bg-card)',
                   border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border-primary)'}`,
-                  borderRadius: 12, overflow: 'hidden', animationDelay: `${i * 0.04}s`,
+                  borderRadius: 10, overflow: 'hidden', animationDelay: `${i * 0.04}s`,
                 }}
               >
                 <div
                   onClick={() => setSelectedTicker(isSelected ? null : h.ticker)}
-                  style={{ padding: '12px 14px', cursor: 'pointer' }}
+                  style={{ padding: '8px 11px', cursor: 'pointer' }}
                 >
-                  {/* 헤더: 로고 + 이름 + 등락률 */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                    <StockLogo ticker={h.ticker} name={h.name} size={32} />
+                  {/* 헤더: 로고 + 이름 + 현재가/등락률 */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <StockLogo ticker={h.ticker} name={h.name} size={26} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.name}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{h.ticker} · {weight.toFixed(1)}%</div>
+                      <div style={{ fontWeight: 700, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.name}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-secondary)' }}>{h.ticker} · {weight.toFixed(1)}%</div>
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: pctColor, fontVariantNumeric: 'tabular-nums' }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: pctColor, fontVariantNumeric: 'tabular-nums' }}>
                         {isLoading ? '-' : pct !== null ? fmtSign(pct) : '-'}
                       </div>
-                      <div style={{ fontSize: 11, color: pctColor }}>
-                        {isLoading || krwChange === null ? '' : nativeChange(h.ticker, krwChange, usdKrw)}
+                      <div style={{ fontSize: 10, color: pctColor, display: 'flex', gap: 3, justifyContent: 'flex-end' }}>
+                        <span>{isLoading ? '' : nativePrice(h.ticker, h.current_price_krw, usdKrw)}</span>
+                        {!isLoading && krwChange !== null && <span>{nativeChange(h.ticker, krwChange, usdKrw)}</span>}
                       </div>
                     </div>
                   </div>
-                  {/* 그리드: 모든 정보 표시 */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px 8px' }}>
-                    <Cell label="현재가" value={isLoading ? '...' : nativePrice(h.ticker, h.current_price_krw, usdKrw)} />
+                  {/* 2×4 그리드 — 일간손익·수량·평균단가·평가금액 / 평가손익·수익률·IRR·섹터 */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '5px 4px' }}>
+                    <Cell label="일간손익" value={isLoading || holdingDailyPnl === null ? '-' : (holdingDailyPnl >= 0 ? '+' : '') + fmtKrw(Math.round(holdingDailyPnl))} color={holdingDailyPnl === null ? 'var(--text-secondary)' : holdingDailyPnl >= 0 ? 'var(--up)' : 'var(--down)'} />
                     <Cell label="수량" value={h.ticker === 'CASH' ? '-' : h.shares.toLocaleString('ko-KR')} />
                     <Cell label="평균단가" value={h.ticker === 'CASH' ? '-' : nativePrice(h.ticker, h.avg_price_krw, usdKrw)} />
                     <Cell label="평가금액" value={fmtKrw(h.market_value_krw)} />
                     <Cell label="평가손익" value={(h.profit_krw >= 0 ? '+' : '') + fmtKrw(h.profit_krw)} color={profitColor} />
                     <Cell label="수익률" value={fmtSign(h.profit_pct)} color={profitColor} />
-                    <Cell label="일간손익" value={isLoading || holdingDailyPnl === null ? '-' : (holdingDailyPnl >= 0 ? '+' : '') + fmtKrw(Math.round(holdingDailyPnl))} color={holdingDailyPnl === null ? 'var(--text-secondary)' : holdingDailyPnl >= 0 ? 'var(--up)' : 'var(--down)'} />
                     <Cell label="IRR" value={isLoading ? '-' : holdingIrr !== null ? fmtSign(holdingIrr * 100) : '-'} color={irrColor} />
                     <div style={{ minWidth: 0 }} onClick={e => e.stopPropagation()}>
-                      <div style={{ fontSize: 9, color: 'var(--text-muted)', marginBottom: 2 }}>섹터</div>
+                      <div style={{ fontSize: 8, color: 'var(--text-muted)', marginBottom: 1 }}>섹터</div>
                       {editingSector === h.ticker ? (
                         <select
                           autoFocus
                           defaultValue={h.sector ?? ''}
                           onChange={e => { saveSector(h.ticker, e.target.value); setEditingSector(null); }}
                           onBlur={() => setEditingSector(null)}
-                          style={{ width: '100%', background: 'var(--bg-tertiary)', border: '1px solid var(--accent)', borderRadius: 5, color: 'var(--text-primary)', fontSize: 11, padding: '3px 4px', outline: 'none' }}
+                          style={{ width: '100%', background: 'var(--bg-tertiary)', border: '1px solid var(--accent)', borderRadius: 4, color: 'var(--text-primary)', fontSize: 10, padding: '2px 3px', outline: 'none' }}
                         >
                           <option value="">– 미분류 –</option>
                           {SECTOR_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
@@ -654,7 +654,7 @@ export default function Dashboard({ portfolio, theme = 'dark', isMobile = false 
                       ) : (
                         <span
                           onClick={() => setEditingSector(h.ticker)}
-                          style={{ fontSize: 12, fontWeight: 600, color: h.sector ? 'var(--text-secondary)' : 'var(--text-muted)', cursor: 'pointer', borderBottom: '1px dashed var(--border-primary)' }}
+                          style={{ fontSize: 10, fontWeight: 600, color: h.sector ? 'var(--text-secondary)' : 'var(--text-muted)', cursor: 'pointer', borderBottom: '1px dashed var(--border-primary)' }}
                         >
                           {h.sector ?? '+ 섹터'}
                         </span>

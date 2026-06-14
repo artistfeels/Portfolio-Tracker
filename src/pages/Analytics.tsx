@@ -615,27 +615,27 @@ export default function Analytics({ portfolio, isMobile = false }: { portfolio: 
       </div>
 
       {/* 상단 요약 카드 + 확장 패널 */}
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 12 }}>
+      <div style={{ marginBottom: isMobile ? 14 : 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : 'repeat(3, 1fr)', gap: isMobile ? 8 : 12 }}>
           {/* IRR 카드 */}
           <div
             onClick={() => setExpandedIrr(v => !v)}
             style={{
               background: 'var(--bg-card)',
               border: `1px solid ${expandedIrr ? 'var(--accent)' : 'var(--border-primary)'}`,
-              borderRadius: 8, padding: '16px 20px', cursor: 'pointer',
+              borderRadius: 8, padding: isMobile ? '10px 12px' : '16px 20px', cursor: 'pointer',
               transition: 'border-color 0.15s',
             }}
           >
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>
-              포트폴리오 IRR
+            <div style={{ fontSize: isMobile ? 10 : 12, color: 'var(--text-secondary)', marginBottom: isMobile ? 3 : 6 }}>
+              IRR
               {excludedTickers.size > 0 && (
-                <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--text-muted)' }}>
+                <span style={{ marginLeft: 4, fontSize: 9, color: 'var(--text-muted)' }}>
                   ({excludedTickers.size}개 제외)
                 </span>
               )}
             </div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: (filteredPortfolioIrr ?? 0) >= 0 ? 'var(--up)' : 'var(--down)' }}>
+            <div style={{ fontSize: isMobile ? 16 : 20, fontWeight: 700, color: (filteredPortfolioIrr ?? 0) >= 0 ? 'var(--up)' : 'var(--down)' }}>
               {fmtPct(filteredPortfolioIrr)}
             </div>
           </div>
@@ -646,12 +646,12 @@ export default function Analytics({ portfolio, isMobile = false }: { portfolio: 
             style={{
               background: 'var(--bg-card)',
               border: `1px solid ${expandedExpected ? 'var(--accent)' : 'var(--border-primary)'}`,
-              borderRadius: 8, padding: '16px 20px', cursor: 'pointer',
+              borderRadius: 8, padding: isMobile ? '10px 12px' : '16px 20px', cursor: 'pointer',
               transition: 'border-color 0.15s',
             }}
           >
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>기대수익률 (CAPM)</div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: expectedReturn === null ? 'var(--text-secondary)' : expectedReturn >= 0 ? 'var(--up)' : 'var(--down)' }}>
+            <div style={{ fontSize: isMobile ? 10 : 12, color: 'var(--text-secondary)', marginBottom: isMobile ? 3 : 6 }}>{isMobile ? 'CAPM 기대' : '기대수익률 (CAPM)'}</div>
+            <div style={{ fontSize: isMobile ? 16 : 20, fontWeight: 700, color: expectedReturn === null ? 'var(--text-secondary)' : expectedReturn >= 0 ? 'var(--up)' : 'var(--down)' }}>
               {expectedReturn === null ? '-' : fmtPct(expectedReturn)}
             </div>
           </div>
@@ -662,12 +662,12 @@ export default function Analytics({ portfolio, isMobile = false }: { portfolio: 
             style={{
               background: 'var(--bg-card)',
               border: `1px solid ${expandedMdd ? 'var(--accent)' : 'var(--border-primary)'}`,
-              borderRadius: 8, padding: '16px 20px', cursor: 'pointer',
+              borderRadius: 8, padding: isMobile ? '10px 12px' : '16px 20px', cursor: 'pointer',
               transition: 'border-color 0.15s',
             }}
           >
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>MDD</div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--down)' }}>
+            <div style={{ fontSize: isMobile ? 10 : 12, color: 'var(--text-secondary)', marginBottom: isMobile ? 3 : 6 }}>MDD</div>
+            <div style={{ fontSize: isMobile ? 16 : 20, fontWeight: 700, color: 'var(--down)' }}>
               {fmtPct(summary.mdd)}
             </div>
           </div>
@@ -1093,24 +1093,24 @@ export default function Analytics({ portfolio, isMobile = false }: { portfolio: 
               .map((r, i) => {
                 const irrColor = r.irr === null ? 'var(--text-secondary)' : r.irr >= 0 ? 'var(--up)' : 'var(--down)';
                 return (
-                  <div key={r.ticker} style={{ padding: '12px 16px', borderTop: i === 0 ? 'none' : '1px solid var(--bg-tertiary)', background: i % 2 === 0 ? 'transparent' : 'var(--bg-primary)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
+                  <div key={r.ticker} style={{ padding: '8px 12px', borderTop: i === 0 ? 'none' : '1px solid var(--bg-tertiary)', background: i % 2 === 0 ? 'transparent' : 'var(--bg-primary)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 5 }}>
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{r.ticker} · 최초매수 {r.first_date}</div>
+                        <div style={{ fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
+                        <div style={{ fontSize: 10, color: 'var(--text-secondary)' }}>{r.ticker} · {r.first_date}</div>
                       </div>
-                      <div style={{ fontSize: 17, fontWeight: 700, color: irrColor, flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: irrColor, flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
                         {r.irr === null ? '-' : fmtPct(r.irr)}
                       </div>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 8px' }}>
                       <div>
-                        <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>투자 원금</div>
-                        <div style={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fmt(r.invested_krw)}</div>
+                        <div style={{ fontSize: 8, color: 'var(--text-muted)' }}>투자 원금</div>
+                        <div style={{ fontSize: 12, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fmt(r.invested_krw)}</div>
                       </div>
                       <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>현재 평가</div>
-                        <div style={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fmt(r.current_value_krw)}</div>
+                        <div style={{ fontSize: 8, color: 'var(--text-muted)' }}>현재 평가</div>
+                        <div style={{ fontSize: 12, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fmt(r.current_value_krw)}</div>
                       </div>
                     </div>
                   </div>

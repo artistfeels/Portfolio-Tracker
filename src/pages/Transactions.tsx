@@ -438,7 +438,7 @@ export default function Transactions({ isMobile = false }: { isMobile?: boolean 
       {loading ? (
         <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>로딩 중...</div>
       ) : isMobile ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
           {rows.map(r => {
             const isEditing = editingId === r.id;
             const isDeleteConfirm = deleteConfirm === r.id;
@@ -450,42 +450,42 @@ export default function Transactions({ isMobile = false }: { isMobile?: boolean 
               );
             }
             return (
-              <div key={r.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 10, padding: '12px 14px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 10 }}>
+              <div key={r.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: '7px 10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 5 }}>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: ACTION_COLOR[r.action], flexShrink: 0 }}>{ACTION_LABEL[r.action]}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: ACTION_COLOR[r.action], flexShrink: 0 }}>{ACTION_LABEL[r.action]}</span>
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 1 }}>{r.ticker} · {r.trade_date} · {r.region}</div>
+                    <div style={{ fontSize: 10, color: 'var(--text-secondary)' }}>{r.ticker} · {r.trade_date} · {r.region}</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
+                    {isDeleteConfirm ? (
+                      <>
+                        <button onClick={() => handleDelete(r.id)} style={{ background: 'var(--up)', border: 'none', color: '#fff', padding: '4px 10px', borderRadius: 5, fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>삭제 확인</button>
+                        <button onClick={() => setDeleteConfirm(null)} style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-primary)', color: 'var(--text-secondary)', padding: '4px 8px', borderRadius: 5, fontSize: 11, cursor: 'pointer' }}>취소</button>
+                      </>
+                    ) : (
+                      <>
+                        <button onClick={() => startEditing(r)} style={{ background: 'none', border: '1px solid var(--border-primary)', color: 'var(--text-secondary)', padding: '4px 10px', borderRadius: 5, fontSize: 11, cursor: 'pointer' }}>수정</button>
+                        <button onClick={() => setDeleteConfirm(r.id)} style={{ background: 'none', border: '1px solid var(--border-primary)', color: 'var(--up)', padding: '4px 10px', borderRadius: 5, fontSize: 11, cursor: 'pointer' }}>삭제</button>
+                      </>
+                    )}
                   </div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 10 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px 6px' }}>
                   <div>
-                    <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>수량</div>
-                    <div style={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{r.shares.toLocaleString()}</div>
+                    <div style={{ fontSize: 8, color: 'var(--text-muted)' }}>수량</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{r.shares.toLocaleString()}</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>단가(KRW)</div>
-                    <div style={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fmt(r.price_krw)}</div>
+                    <div style={{ fontSize: 8, color: 'var(--text-muted)' }}>단가(KRW)</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fmt(r.price_krw)}</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>섹터</div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.sector ?? '-'}</div>
+                    <div style={{ fontSize: 8, color: 'var(--text-muted)' }}>섹터</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.sector ?? '-'}</div>
                   </div>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
-                  {isDeleteConfirm ? (
-                    <>
-                      <button onClick={() => handleDelete(r.id)} style={{ background: 'var(--up)', border: 'none', color: '#fff', padding: '7px 14px', borderRadius: 6, fontSize: 12, cursor: 'pointer', fontWeight: 600, minHeight: 36 }}>삭제 확인</button>
-                      <button onClick={() => setDeleteConfirm(null)} style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-primary)', color: 'var(--text-secondary)', padding: '7px 12px', borderRadius: 6, fontSize: 12, cursor: 'pointer', minHeight: 36 }}>취소</button>
-                    </>
-                  ) : (
-                    <>
-                      <button onClick={() => startEditing(r)} style={{ background: 'none', border: '1px solid var(--border-primary)', color: 'var(--text-secondary)', padding: '7px 16px', borderRadius: 6, fontSize: 12, cursor: 'pointer', minHeight: 36 }}>수정</button>
-                      <button onClick={() => setDeleteConfirm(r.id)} style={{ background: 'none', border: '1px solid var(--border-primary)', color: 'var(--up)', padding: '7px 16px', borderRadius: 6, fontSize: 12, cursor: 'pointer', minHeight: 36 }}>삭제</button>
-                    </>
-                  )}
                 </div>
               </div>
             );
