@@ -33,6 +33,7 @@ interface Props {
   ticker: string;
   name: string;
   theme?: Theme;
+  avgPrice?: number;
 }
 
 type Interval = '1h' | '1d' | '1wk' | '1mo';
@@ -99,6 +100,22 @@ const MA_CONFIGS = [
   { period: 120, color: '#20b2aa', label: 'MA120' },
   { period: 200, color: '#e879f9', label: 'MA200' },
 ];
+
+function calcBollinger(closes: { time: CandleTime; value: number }[], period = 20, mult = 2) {
+  const upper: { time: CandleTime; value: number }[] = [];
+  const lower: { time: CandleTime; value: number }[] = [];
+  for (let i = period - 1; i < closes.length; i++) {
+    let sum = 0;
+    for (let j = 0; j < period; j++) sum += closes[i - j].value;
+    const mean = sum / period;
+    let sqSum = 0;
+    for (let j = 0; j < period; j++) sqSum += (closes[i - j].value - mean) ** 2;
+    const std = Math.sqrt(sqSum / period);
+    upper.push({ time: closes[i].time, value: mean + mult * std });
+    lower.push({ time: closes[i].time, value: mean - mult * std });
+  }
+  return { upper, lower };
+}
 
 function calcMA(closes: { time: CandleTime; value: number }[], period: number) {
   const result: { time: CandleTime; value: number }[] = [];
@@ -201,13 +218,17 @@ async function fetchCandles(yahooSym: string, iv: Interval, fetchRange: string):
 }
 
 
-export default function ChartPanel({ ticker, name, theme = 'dark' }: Props) {
+export default function ChartPanel({ ticker, name, theme = 'dark', avgPrice }: Props) {
   const containerRef   = useRef<HTMLDivElement>(null);
   const chartRef       = useRef<IChartApi | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const candleSerRef   = useRef<any>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const maSeriesRef    = useRef<any[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const bbUpperRef     = useRef<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const bbLowerRef     = useRef<any>(null);
   const allCandlesRef  = useRef<Candle[]>([]);
   const fetchedRangeRef = useRef<string>('');
 
@@ -215,6 +236,7 @@ export default function ChartPanel({ ticker, name, theme = 'dark' }: Props) {
   const [error,   setError]           = useState(false);
   const [iv,      setIv]              = useState<Interval>('1d');
   const [activeScope, setActiveScope] = useState<string>(DEFAULT_SCOPE['1d']);
+  const [showBB,  setShowBB]          = useState(false);
 
   // Loads ALL fetched history into the chart, then sets the visible window.
   // Scope buttons only zoom the visible range — full history stays loaded so the
@@ -230,11 +252,14 @@ export default function ChartPanel({ ticker, name, theme = 'dark' }: Props) {
     // Full dataset is always set on the series — never pre-sliced.
     cs.setData(all as never);
 
-    // MAs computed over the full history (correct warmup for MA200 etc.).
+    // MAs + Bollinger computed over the full history.
     const allCloses = all.map(c => ({ time: c.time, value: c.close }));
     MA_CONFIGS.forEach((cfg, idx) => {
       maSeriesRef.current[idx]?.setData(calcMA(allCloses, cfg.period) as never);
     });
+    const bb = calcBollinger(allCloses);
+    bbUpperRef.current?.setData(bb.upper as never);
+    bbLowerRef.current?.setData(bb.lower as never);
 
     const ts = chart.timeScale();
 
@@ -302,6 +327,24 @@ export default function ChartPanel({ ticker, name, theme = 'dark' }: Props) {
       })
     );
 
+    bbUpperRef.current = chart.addSeries(LineSeries, {
+      color: '#8b5cf6', lineWidth: 1, lineStyle: 2,
+      priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+      visible: false,
+    });
+    bbLowerRef.current = chart.addSeries(LineSeries, {
+      color: '#8b5cf6', lineWidth: 1, lineStyle: 2,
+      priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+      visible: false,
+    });
+
+    if (avgPrice && avgPrice > 0) {
+      cs.createPriceLine({
+        price: avgPrice, color: '#facc15', lineWidth: 1, lineStyle: 2,
+        axisLabelVisible: true, title: '평단가',
+      } as never);
+    }
+
     allCandlesRef.current   = [];
     fetchedRangeRef.current = '';
 
@@ -327,9 +370,11 @@ export default function ChartPanel({ ticker, name, theme = 'dark' }: Props) {
       chartRef.current     = null;
       candleSerRef.current = null;
       maSeriesRef.current  = [];
+      bbUpperRef.current   = null;
+      bbLowerRef.current   = null;
       chart.remove();
     };
-  }, [ticker, iv, theme]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ticker, iv, theme, avgPrice]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleScope(scopeKey: string) {
     setActiveScope(scopeKey);
@@ -364,14 +409,33 @@ export default function ChartPanel({ ticker, name, theme = 'dark' }: Props) {
           {name} {INTERVAL_LABELS[iv]}
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          {/* MA 범례 */}
-          <div style={{ display: 'flex', gap: 8 }}>
+          {/* MA 범례 + BB 토글 */}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             {MA_CONFIGS.map(cfg => (
               <div key={cfg.period} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: cfg.color }}>
                 <div style={{ width: 14, height: 2, background: cfg.color, borderRadius: 1 }} />
                 {cfg.label}
               </div>
             ))}
+            {avgPrice && avgPrice > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: '#facc15' }}>
+                <div style={{ width: 14, height: 0, background: 'transparent', borderRadius: 1, borderTop: '2px dashed #facc15' }} />
+                평단가
+              </div>
+            )}
+            <button onClick={() => {
+              const next = !showBB;
+              setShowBB(next);
+              bbUpperRef.current?.applyOptions({ visible: next });
+              bbLowerRef.current?.applyOptions({ visible: next });
+            }} style={{
+              padding: '2px 8px', borderRadius: 4, fontSize: 10, cursor: 'pointer',
+              background: showBB ? 'rgba(139,92,246,0.2)' : 'transparent',
+              border: `1px solid ${showBB ? '#8b5cf6' : 'var(--border-primary)'}`,
+              color: showBB ? '#8b5cf6' : 'var(--text-muted)',
+            }}>
+              BB(20,2)
+            </button>
           </div>
           {/* 봉 유형 버튼 */}
           <div style={{ display: 'flex', gap: 2 }}>

@@ -156,6 +156,23 @@ export function usePortfolio() {
       });
 
       setLastUpdated(new Date());
+
+      // 일별 스냅샷 저장 (테이블이 없으면 무시)
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const today = new Date().toISOString().slice(0, 10);
+          const snap = {
+            user_id: user.id,
+            date: today,
+            total_assets_krw: Math.round(rawHoldings.reduce((s, h) => s + h.avg_price_krw * h.shares, 0)),
+            total_principal_krw: Math.round(rawHoldings.reduce((s, h) => s + h.total_principal_krw, 0)),
+            unrealized_profit_krw: 0,
+            usd_krw: usdKrwRef.current,
+          };
+          supabase.from('portfolio_snapshots').upsert(snap, { onConflict: 'user_id,date' }).then(() => {});
+        }
+      } catch { /* 스냅샷 테이블 미존재 시 무시 */ }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
       if (!silent) setStatus('error');

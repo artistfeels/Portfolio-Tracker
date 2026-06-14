@@ -634,7 +634,7 @@ export default function Dashboard({ portfolio, theme = 'dark', isMobile = false 
                     {isSelected && (
                       <tr key={`${h.ticker}-chart`}>
                         <td colSpan={isMobile ? 4 : 10} style={{ padding: 0 }}>
-                          <ChartPanel ticker={h.ticker} name={h.name} theme={theme} />
+                          <ChartPanel ticker={h.ticker} name={h.name} theme={theme} avgPrice={h.avg_price_krw} />
                         </td>
                       </tr>
                     )}
@@ -711,7 +711,7 @@ export default function Dashboard({ portfolio, theme = 'dark', isMobile = false 
                     {isSelected && (
                       <tr key={`${h.ticker}-chart`}>
                         <td colSpan={9} style={{ padding: 0 }}>
-                          <ChartPanel ticker={h.ticker} name={h.name} theme={theme} />
+                          <ChartPanel ticker={h.ticker} name={h.name} theme={theme} avgPrice={h.avg_price_krw} />
                         </td>
                       </tr>
                     )}

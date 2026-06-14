@@ -14,6 +14,10 @@ const items: { page: Page; icon: string; label: string }[] = [
   { page: 'dashboard',    icon: '📊', label: '대시보드' },
   { page: 'transactions', icon: '📄', label: '거래내역' },
   { page: 'analytics',    icon: '📈', label: '애널리틱스' },
+  { page: 'market',       icon: '🌐', label: '시장'     },
+  { page: 'watchlist',    icon: '⭐', label: '관심종목' },
+  { page: 'dividend',     icon: '💵', label: '배당'     },
+  { page: 'tax',          icon: '🧾', label: '세금'     },
 ];
 
 export default function Sidebar({ current, onNavigate, theme, onToggleTheme, isMobile }: Props) {
@@ -25,49 +29,53 @@ export default function Sidebar({ current, onNavigate, theme, onToggleTheme, isM
         backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
         borderTop: '1px solid var(--glass-border)',
         display: 'flex', flexDirection: 'row',
-        alignItems: 'center', justifyContent: 'space-around',
+        alignItems: 'stretch',
         height: 56,
         paddingBottom: 'env(safe-area-inset-bottom)',
-      }}>
+        overflowX: 'auto',
+        scrollbarWidth: 'none',
+        WebkitOverflowScrolling: 'touch',
+      } as React.CSSProperties}>
         {items.map(({ page, icon, label }) => (
           <button
             key={page}
             onClick={() => onNavigate(page)}
             style={{
-              flex: 1, height: '100%',
+              flex: '0 0 auto', minWidth: 52, height: '100%',
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
               background: 'none', border: 'none', cursor: 'pointer',
               color: current === page ? 'var(--accent)' : 'var(--text-muted)',
-              fontSize: 20,
+              fontSize: 18, padding: '0 4px',
             }}
           >
             <span>{icon}</span>
-            <span style={{ fontSize: 9, fontWeight: current === page ? 700 : 400 }}>{label}</span>
+            <span style={{ fontSize: 8, fontWeight: current === page ? 700 : 400, whiteSpace: 'nowrap' }}>{label}</span>
           </button>
         ))}
+        <div style={{ flex: '0 0 1px', background: 'var(--border-primary)', margin: '10px 2px' }} />
         <button
           onClick={onToggleTheme}
           style={{
-            flex: 1, height: '100%',
+            flex: '0 0 auto', minWidth: 44, height: '100%',
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
             background: 'none', border: 'none', cursor: 'pointer',
-            color: 'var(--text-muted)', fontSize: 18,
+            color: 'var(--text-muted)', fontSize: 16, padding: '0 4px',
           }}
         >
           <span>{theme === 'dark' ? '☀️' : '🌙'}</span>
-          <span style={{ fontSize: 9 }}>테마</span>
+          <span style={{ fontSize: 8 }}>테마</span>
         </button>
         <button
           onClick={() => supabase.auth.signOut()}
           style={{
-            flex: 1, height: '100%',
+            flex: '0 0 auto', minWidth: 44, height: '100%',
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
             background: 'none', border: 'none', cursor: 'pointer',
-            color: 'var(--text-muted)', fontSize: 18,
+            color: 'var(--text-muted)', fontSize: 16, padding: '0 4px',
           }}
         >
           <span>↩</span>
-          <span style={{ fontSize: 9 }}>로그아웃</span>
+          <span style={{ fontSize: 8 }}>로그아웃</span>
         </button>
       </nav>
     );

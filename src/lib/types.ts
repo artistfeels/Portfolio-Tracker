@@ -1,4 +1,4 @@
-export type Page = 'dashboard' | 'transactions' | 'analytics';
+export type Page = 'dashboard' | 'transactions' | 'analytics' | 'watchlist' | 'dividend' | 'market' | 'tax';
 
 export interface Transaction {
   id: string;
@@ -50,6 +50,15 @@ export interface HistoryPoint {
   date: string;
   value_krw: number;
   invested_krw: number;
+}
+
+export interface WatchlistItem {
+  id: string;
+  ticker: string;
+  name: string;
+  target_price_krw: number | null;
+  region: '한국' | '해외';
+  created_at: string;
 }
 
 export interface IrrResult {
