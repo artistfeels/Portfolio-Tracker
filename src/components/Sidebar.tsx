@@ -94,12 +94,7 @@ export default function Sidebar({ current, onNavigate, theme, onToggleTheme, isM
     }}>
       {/* 앱 로고 */}
       <div style={{ padding: '0 16px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div style={{
-          width: 28, height: 28, borderRadius: 7,
-          background: 'linear-gradient(135deg, #7c3aed 0%, #2563eb 100%)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 12, fontWeight: 800, color: '#fff', flexShrink: 0,
-        }}>PT</div>
+        <img src="/favicon.svg" width={28} height={28} style={{ borderRadius: 7, flexShrink: 0 }} alt="logo" />
         <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: -0.3 }}>Portfolio</span>
       </div>
 
