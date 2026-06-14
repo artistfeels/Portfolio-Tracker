@@ -15,9 +15,10 @@ const TV_MAP: Record<string, string> = {
 };
 
 export function toTvSymbol(ticker: string): string {
+  if (ticker.includes(':')) return ticker;   // already a TradingView symbol
   if (TV_MAP[ticker]) return TV_MAP[ticker];
   if (/^\d{6}$/.test(ticker)) return `KRX:${ticker}`;
-  return ticker.replace(/[=X]$/, '').replace('^', '');
+  return ticker.replace(/=X$/, '').replace(/^\^/, '');
 }
 
 interface Props {

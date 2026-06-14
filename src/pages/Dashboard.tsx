@@ -193,7 +193,7 @@ export default function Dashboard({ portfolio, theme = 'dark', isMobile = false 
       .from('transactions')
       .update({ sector: newSector || null })
       .eq('ticker', ticker);
-    reload();
+    portfolio.patchSector(ticker, newSector || null);
   }
 
   function toggleSort(key: string) {

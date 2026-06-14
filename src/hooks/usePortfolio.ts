@@ -212,5 +212,10 @@ export function usePortfolio() {
     return () => clearInterval(id);
   }, [load]);
 
-  return { transactions, holdings, summary, usdKrw, status, isRefreshing, error, lastUpdated, reload: load, updateCash };
+  const patchSector = useCallback((ticker: string, sector: string | null) => {
+    setTransactions(prev => prev.map(t => t.ticker === ticker ? { ...t, sector } : t));
+    setHoldings(prev => prev.map(h => h.ticker === ticker ? { ...h, sector } : h));
+  }, []);
+
+  return { transactions, holdings, summary, usdKrw, status, isRefreshing, error, lastUpdated, reload: load, updateCash, patchSector };
 }

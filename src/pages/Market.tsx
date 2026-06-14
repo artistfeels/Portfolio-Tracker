@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { HoldingWithPrice } from '../lib/types';
-import TvModal from '../components/TvModal';
 
 interface Props {
   holdings: HoldingWithPrice[];
@@ -87,6 +86,40 @@ function fmtPrice(p: number | null, symbol: string) {
 }
 function fmtKrw(n: number) { return '₩' + Math.round(n).toLocaleString('ko-KR'); }
 
+function TvChart({ tvSymbol, label, theme, onClose }: { tvSymbol: string; label: string; theme: string; onClose: () => void }) {
+  const src = `https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(tvSymbol)}&interval=D&locale=kr&theme=${theme}&style=1&timezone=Asia%2FSeoul&withdateranges=1&hide_side_toolbar=0&allow_symbol_change=1`;
+  return (
+    <div style={{
+      border: '1px solid var(--border-primary)', borderRadius: 12,
+      overflow: 'hidden', marginBottom: 20, height: 480,
+    }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '10px 16px', borderBottom: '1px solid var(--border-primary)',
+        background: 'var(--bg-card)',
+      }}>
+        <div>
+          <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>{label}</span>
+          <span style={{ fontSize: 10, color: 'var(--text-muted)', marginLeft: 8 }}>{tvSymbol}</span>
+        </div>
+        <button onClick={onClose} style={{
+          background: 'var(--bg-tertiary)', border: '1px solid var(--border-primary)',
+          borderRadius: 6, width: 28, height: 28, cursor: 'pointer',
+          color: 'var(--text-secondary)', fontSize: 13,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>✕</button>
+      </div>
+      <iframe
+        key={tvSymbol}
+        src={src}
+        style={{ width: '100%', height: 'calc(100% - 43px)', border: 'none', display: 'block' }}
+        title={label}
+        allowFullScreen
+      />
+    </div>
+  );
+}
+
 export default function Market({ holdings, usdKrw, isMobile, theme = 'dark' }: Props) {
   const [vixQuote, setVixQuote] = useState<Quote>({
     symbol: '^VIX', label: 'VIX', emoji: '😨', tvSymbol: 'CBOE:VIX',
@@ -98,12 +131,10 @@ export default function Market({ holdings, usdKrw, isMobile, theme = 'dark' }: P
   const [fxRates, setFxRates] = useState<FxRate[]>(
     FX_CONFIGS.map(c => ({ ...c, display: '', price: null, changePct: null, loading: true }))
   );
-  const [tvTicker, setTvTicker] = useState<string | null>(null);
-  const [tvName,   setTvName]   = useState('');
+  const [selectedTv, setSelectedTv] = useState<{ sym: string; label: string } | null>(null);
 
-  function openTv(tvSymbol: string, label: string) {
-    setTvTicker(tvSymbol);
-    setTvName(label);
+  function selectChart(sym: string, label: string) {
+    setSelectedTv(prev => prev?.sym === sym ? null : { sym, label });
   }
 
   // 지수 + VIX 순차 조회
@@ -174,10 +205,12 @@ export default function Market({ holdings, usdKrw, isMobile, theme = 'dark' }: P
   const vixInfo = vixLevel(vixQuote.price);
   const pd = isMobile ? '16px 12px' : '24px 28px';
 
-  const cardHover = {
-    cursor: 'pointer',
-    transition: 'transform 0.12s, box-shadow 0.12s',
-  };
+  const cardStyle = (isSelected: boolean) => ({
+    cursor: 'pointer' as const,
+    transition: 'transform 0.12s, box-shadow 0.12s, border-color 0.12s',
+    outline: isSelected ? '2px solid var(--accent)' : 'none',
+    outlineOffset: isSelected ? '-1px' : undefined,
+  });
 
   return (
     <div style={{ padding: pd, color: 'var(--text-primary)', minHeight: '100vh' }}>
@@ -187,7 +220,7 @@ export default function Market({ holdings, usdKrw, isMobile, theme = 'dark' }: P
         <h2 style={{ fontSize: isMobile ? 18 : 22, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>시장 현황</h2>
         <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
           {new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
-          <span style={{ marginLeft: 8, fontSize: 10, color: 'var(--text-muted)' }}>클릭하면 TradingView 차트</span>
+          <span style={{ marginLeft: 8, fontSize: 10, color: 'var(--text-muted)' }}>클릭하면 차트</span>
         </span>
       </div>
 
@@ -195,13 +228,13 @@ export default function Market({ holdings, usdKrw, isMobile, theme = 'dark' }: P
       <div style={{
         display: 'grid',
         gridTemplateColumns: isMobile ? '1fr' : '260px 1fr',
-        gap: 16, marginBottom: 20,
+        gap: 16, marginBottom: 16,
       }}>
         {/* VIX 공포 게이지 */}
         <div
-          onClick={() => openTv('CBOE:VIX', 'VIX 변동성 지수')}
+          onClick={() => selectChart('CBOE:VIX', 'VIX 변동성 지수')}
           style={{
-            ...cardHover,
+            ...cardStyle(selectedTv?.sym === 'CBOE:VIX'),
             background: 'var(--bg-card)', border: '1px solid var(--border-primary)',
             borderRadius: 12, padding: '20px 20px',
             display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
@@ -253,9 +286,9 @@ export default function Market({ holdings, usdKrw, isMobile, theme = 'dark' }: P
           {quotes.map(q => (
             <div
               key={q.symbol}
-              onClick={() => openTv(q.tvSymbol, q.label)}
+              onClick={() => selectChart(q.tvSymbol, q.label)}
               style={{
-                ...cardHover,
+                ...cardStyle(selectedTv?.sym === q.tvSymbol),
                 background: 'var(--bg-card)', borderRadius: 12, padding: '14px 16px',
                 border: '1px solid var(--border-primary)',
                 borderLeft: !q.loading && q.changePct != null
@@ -291,6 +324,16 @@ export default function Market({ holdings, usdKrw, isMobile, theme = 'dark' }: P
         </div>
       </div>
 
+      {/* ── 인라인 TradingView 차트 ──────────────── */}
+      {selectedTv && (
+        <TvChart
+          tvSymbol={selectedTv.sym}
+          label={selectedTv.label}
+          theme={theme}
+          onClose={() => setSelectedTv(null)}
+        />
+      )}
+
       {/* ── 환율 ─────────────────────────────────────── */}
       <div style={{ marginBottom: 20 }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 10, letterSpacing: 0.5, textTransform: 'uppercase' }}>
@@ -299,9 +342,9 @@ export default function Market({ holdings, usdKrw, isMobile, theme = 'dark' }: P
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 10 }}>
           {/* USD/KRW */}
           <div
-            onClick={() => openTv('FX_IDC:USDKRW', '달러/원 USD/KRW')}
+            onClick={() => selectChart('FX_IDC:USDKRW', '달러/원 USD/KRW')}
             style={{
-              ...cardHover,
+              ...cardStyle(selectedTv?.sym === 'FX_IDC:USDKRW'),
               background: 'var(--bg-card)', border: '1px solid var(--border-primary)',
               borderRadius: 12, padding: '14px 16px',
             }}
@@ -318,9 +361,9 @@ export default function Market({ holdings, usdKrw, isMobile, theme = 'dark' }: P
           {fxRates.map(r => (
             <div
               key={r.code}
-              onClick={() => openTv(r.tvSymbol, r.label)}
+              onClick={() => selectChart(r.tvSymbol, r.label)}
               style={{
-                ...cardHover,
+                ...cardStyle(selectedTv?.sym === r.tvSymbol),
                 background: 'var(--bg-card)', border: '1px solid var(--border-primary)',
                 borderRadius: 12, padding: '14px 16px',
               }}
@@ -396,14 +439,6 @@ export default function Market({ holdings, usdKrw, isMobile, theme = 'dark' }: P
           보유 종목의 섹터를 설정하면 섹터 분석이 표시됩니다.
         </div>
       )}
-
-      {/* TradingView 차트 모달 */}
-      <TvModal
-        ticker={tvTicker}
-        name={tvName}
-        theme={theme}
-        onClose={() => setTvTicker(null)}
-      />
     </div>
   );
 }
