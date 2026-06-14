@@ -12,7 +12,7 @@ export type Theme = 'light' | 'dark';
 
 // ─── 로그인 화면 ───────────────────────────────────────────────────────────────
 
-function LoginPage() {
+function LoginPage({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () => void }) {
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [error, setError]       = useState('');
@@ -33,6 +33,22 @@ function LoginPage() {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       width: '100%', minHeight: '100vh', background: 'var(--bg-primary)',
     }}>
+      {/* 테마 토글 버튼 */}
+      <button
+        onClick={onToggleTheme}
+        title={theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'}
+        style={{
+          position: 'absolute', top: 20, right: 20, zIndex: 10,
+          background: 'var(--glass-bg)', border: '1px solid var(--glass-border)',
+          backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+          borderRadius: 10, width: 40, height: 40,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer', fontSize: 18, transition: 'all 0.2s ease',
+          boxShadow: '0 2px 12px rgba(0,0,0,0.12)',
+        }}
+      >
+        {theme === 'dark' ? '☀️' : '🌙'}
+      </button>
       {/* Aurora 배경 */}
       <div className="aurora-orb aurora-orb-1" />
       <div className="aurora-orb aurora-orb-2" />
@@ -156,6 +172,6 @@ export default function App() {
   };
 
   if (session === undefined) return null; // 세션 확인 중 (순간적)
-  if (session === null) return <LoginPage />;
+  if (session === null) return <LoginPage theme={theme} onToggleTheme={toggleTheme} />;
   return <AuthenticatedApp theme={theme} onToggleTheme={toggleTheme} />;
 }
