@@ -3,7 +3,20 @@ import type { usePortfolio } from '../hooks/usePortfolio';
 import ChartPanel from '../components/ChartPanel';
 import SparkLine from '../components/SparkLine';
 import MarketBar from '../components/MarketBar';
+import StockLogo from '../components/StockLogo';
 import { calcHoldingIrrs, calcPortfolioIrr } from '../lib/calc';
+import { supabase } from '../lib/supabaseClient';
+
+export const SECTOR_OPTIONS = [
+  '기술', '반도체', '클라우드/SaaS', '인터넷/플랫폼', '게임/엔터',
+  '헬스케어', '바이오/제약', '의료기기',
+  '금융', '은행', '보험',
+  '에너지', '원자재/상품', '금/귀금속',
+  '소비재', '필수소비재', '의류/명품', '식음료',
+  '산업재', '방위/항공우주', '물류/운송',
+  '자동차/EV', '소재', '유틸리티', '통신', '부동산',
+  '미디어/콘텐츠', 'ETF/인덱스', '암호화폐',
+];
 
 type PortfolioState = ReturnType<typeof usePortfolio>;
 
@@ -173,6 +186,15 @@ export default function Dashboard({ portfolio, theme = 'dark', isMobile = false 
   const [cashInput, setCashInput] = useState('');
   const [selectedMarket, setSelectedMarket] = useState<{ sym: string; label: string } | null>(null);
   const [showInfoViz, setShowInfoViz] = useState(false);
+  const [editingSector, setEditingSector] = useState<string | null>(null);
+
+  async function saveSector(ticker: string, newSector: string) {
+    await supabase
+      .from('transactions')
+      .update({ sector: newSector || null })
+      .eq('ticker', ticker);
+    reload();
+  }
 
   function toggleSort(key: string) {
     if (sortKey === key) setSortDir(d => d === 'desc' ? 'asc' : 'desc');
@@ -572,6 +594,7 @@ export default function Dashboard({ portfolio, theme = 'dark', isMobile = false 
                 <SortTh label="평가금액" k="market_value" />
                 {!isMobile && <SortTh label="일간 손익" k="daily_pnl" />}
                 {!isMobile && <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 500, whiteSpace: 'nowrap' }}>비중</th>}
+                {!isMobile && <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 500, whiteSpace: 'nowrap' }}>섹터</th>}
               </tr>
             </thead>
             <tbody>
@@ -599,8 +622,13 @@ export default function Dashboard({ portfolio, theme = 'dark', isMobile = false 
                       }}
                     >
                       <td style={{ padding: isMobile ? '8px 10px' : '9px 14px', whiteSpace: 'nowrap' }}>
-                        <div style={{ fontWeight: 600, fontSize: isMobile ? 13 : 14 }}>{h.name}</div>
-                        <div style={{ fontSize: isMobile ? 10 : 11, color: 'var(--text-secondary)', marginTop: 1 }}>{h.ticker}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <StockLogo ticker={h.ticker} name={h.name} size={26} />
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: isMobile ? 13 : 14 }}>{h.name}</div>
+                            <div style={{ fontSize: isMobile ? 10 : 11, color: 'var(--text-secondary)', marginTop: 1 }}>{h.ticker}</div>
+                          </div>
+                        </div>
                       </td>
                       {!isMobile && <td style={{ padding: '4px 8px', width: 120 }}>
                         {!isLoading && <SparkLine ticker={h.ticker} dailyChangePct={h.daily_change_pct} />}
@@ -630,10 +658,44 @@ export default function Dashboard({ portfolio, theme = 'dark', isMobile = false 
                       {!isMobile && <td style={{ padding: '9px 14px', textAlign: 'right', color: 'var(--text-secondary)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
                         {weight.toFixed(1)}%
                       </td>}
+                      {!isMobile && (
+                        <td style={{ padding: '6px 14px', textAlign: 'left' }} onClick={e => e.stopPropagation()}>
+                          {editingSector === h.ticker ? (
+                            <select
+                              autoFocus
+                              defaultValue={h.sector ?? ''}
+                              onChange={e => { saveSector(h.ticker, e.target.value); setEditingSector(null); }}
+                              onBlur={() => setEditingSector(null)}
+                              style={{
+                                background: 'var(--bg-tertiary)', border: '1px solid var(--accent)',
+                                borderRadius: 5, color: 'var(--text-primary)', fontSize: 11,
+                                padding: '3px 6px', cursor: 'pointer', outline: 'none',
+                              }}
+                            >
+                              <option value="">– 미분류 –</option>
+                              {SECTOR_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                          ) : (
+                            <span
+                              title="클릭해서 섹터 수정"
+                              onClick={() => setEditingSector(h.ticker)}
+                              style={{
+                                fontSize: 11, padding: '2px 8px', borderRadius: 980,
+                                background: h.sector ? 'var(--bg-tertiary)' : 'transparent',
+                                border: `1px dashed ${h.sector ? 'var(--border-primary)' : 'var(--text-muted)'}`,
+                                color: h.sector ? 'var(--text-secondary)' : 'var(--text-muted)',
+                                cursor: 'pointer', whiteSpace: 'nowrap', display: 'inline-block',
+                              }}
+                            >
+                              {h.sector ?? '+ 섹터'}
+                            </span>
+                          )}
+                        </td>
+                      )}
                     </tr>
                     {isSelected && (
                       <tr key={`${h.ticker}-chart`}>
-                        <td colSpan={isMobile ? 4 : 10} style={{ padding: 0 }}>
+                        <td colSpan={isMobile ? 4 : 11} style={{ padding: 0 }}>
                           <ChartPanel ticker={h.ticker} name={h.name} theme={theme} avgPrice={h.avg_price_krw} />
                         </td>
                       </tr>
@@ -656,6 +718,7 @@ export default function Dashboard({ portfolio, theme = 'dark', isMobile = false 
                 <SortTh label="수익률" k="profit_pct" />
                 <SortTh label="IRR" k="irr" />
                 <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 500, whiteSpace: 'nowrap' }}>비중</th>
+                <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 500, whiteSpace: 'nowrap' }}>섹터</th>
               </tr>
             </thead>
             <tbody>
@@ -680,8 +743,13 @@ export default function Dashboard({ portfolio, theme = 'dark', isMobile = false 
                       }}
                     >
                       <td style={{ padding: '9px 14px' }}>
-                        <div style={{ fontWeight: 600, fontSize: 14 }}>{h.name}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 1 }}>{h.ticker}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <StockLogo ticker={h.ticker} name={h.name} size={26} />
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: 14 }}>{h.name}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 1 }}>{h.ticker}</div>
+                          </div>
+                        </div>
                       </td>
                       <td style={{ padding: '9px 14px', textAlign: 'right', color: 'var(--text-primary)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
                         {h.shares.toLocaleString()}
@@ -707,10 +775,42 @@ export default function Dashboard({ portfolio, theme = 'dark', isMobile = false 
                       <td style={{ padding: '9px 14px', textAlign: 'right', color: 'var(--text-secondary)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
                         {weight.toFixed(1)}%
                       </td>
+                      <td style={{ padding: '6px 14px', textAlign: 'left' }} onClick={e => e.stopPropagation()}>
+                        {editingSector === h.ticker ? (
+                          <select
+                            autoFocus
+                            defaultValue={h.sector ?? ''}
+                            onChange={e => { saveSector(h.ticker, e.target.value); setEditingSector(null); }}
+                            onBlur={() => setEditingSector(null)}
+                            style={{
+                              background: 'var(--bg-tertiary)', border: '1px solid var(--accent)',
+                              borderRadius: 5, color: 'var(--text-primary)', fontSize: 11,
+                              padding: '3px 6px', cursor: 'pointer', outline: 'none',
+                            }}
+                          >
+                            <option value="">– 미분류 –</option>
+                            {SECTOR_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                        ) : (
+                          <span
+                            title="클릭해서 섹터 수정"
+                            onClick={() => setEditingSector(h.ticker)}
+                            style={{
+                              fontSize: 11, padding: '2px 8px', borderRadius: 980,
+                              background: h.sector ? 'var(--bg-tertiary)' : 'transparent',
+                              border: `1px dashed ${h.sector ? 'var(--border-primary)' : 'var(--text-muted)'}`,
+                              color: h.sector ? 'var(--text-secondary)' : 'var(--text-muted)',
+                              cursor: 'pointer', whiteSpace: 'nowrap', display: 'inline-block',
+                            }}
+                          >
+                            {h.sector ?? '+ 섹터'}
+                          </span>
+                        )}
+                      </td>
                     </tr>
                     {isSelected && (
                       <tr key={`${h.ticker}-chart`}>
-                        <td colSpan={9} style={{ padding: 0 }}>
+                        <td colSpan={10} style={{ padding: 0 }}>
                           <ChartPanel ticker={h.ticker} name={h.name} theme={theme} avgPrice={h.avg_price_krw} />
                         </td>
                       </tr>

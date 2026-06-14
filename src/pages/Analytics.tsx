@@ -492,9 +492,12 @@ export default function Analytics({ portfolio, isMobile = false }: { portfolio: 
     return filteredTxs.length ? calcPortfolioIrr(filteredTxs, filteredHoldings) : null;
   }, [excludedTickers, txsSorted, holdings, summary.portfolioIrr]);
 
+  // TWR 기준 연도별 MDD: benchmarkData.portfolio가 TWR 시리즈 (현금유입 제거)
   const yearlyMdd = useMemo(() => {
-    const yearMap = new Map<number, { date: string; value_krw: number }[]>();
-    for (const p of history) {
+    const twrPts = benchmarkData?.portfolio ?? [];
+    if (twrPts.length === 0) return [];
+    const yearMap = new Map<number, { date: string; value: number }[]>();
+    for (const p of twrPts) {
       const year = parseInt(p.date.slice(0, 4));
       if (!yearMap.has(year)) yearMap.set(year, []);
       yearMap.get(year)!.push(p);
@@ -504,12 +507,12 @@ export default function Analytics({ portfolio, isMobile = false }: { portfolio: 
       .map(([year, pts]) => {
         let peak = -Infinity, mdd = 0;
         for (const p of pts) {
-          if (p.value_krw > peak) peak = p.value_krw;
-          if (peak > 0) { const dd = (p.value_krw - peak) / peak; if (dd < mdd) mdd = dd; }
+          if (p.value > peak) peak = p.value;
+          if (peak > 0) { const dd = (p.value - peak) / peak; if (dd < mdd) mdd = dd; }
         }
         return { year, mdd };
       });
-  }, [history]);
+  }, [benchmarkData]);
 
   const cagr = useMemo(() => {
     // 심층 분석 데이터가 있으면 포트폴리오 가치 기준으로 계산 (cagrYears 기준)
