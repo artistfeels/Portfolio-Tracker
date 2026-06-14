@@ -31,7 +31,7 @@ function LoginPage() {
     <div style={{
       position: 'relative', overflow: 'hidden',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      minHeight: '100vh', background: 'var(--bg-primary)',
+      width: '100%', minHeight: '100vh', background: 'var(--bg-primary)',
     }}>
       {/* Aurora 배경 */}
       <div className="aurora-orb aurora-orb-1" />

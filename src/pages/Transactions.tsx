@@ -174,15 +174,15 @@ export default function Transactions() {
     return () => { mountedRef.current = false; };
   }, []);
 
-  async function load() {
-    setLoading(true);
+  async function load(silent = false) {
+    if (!silent) setLoading(true);
     const { data } = await supabase
       .from('transactions')
       .select('*')
       .order('trade_date', { ascending: false });
     if (mountedRef.current) {
       setRows((data ?? []) as Transaction[]);
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }
 
@@ -312,18 +312,21 @@ export default function Transactions() {
     setSaving(true);
     if (editingId) {
       await supabase.from('transactions').update(payload).eq('id', editingId);
+      setRows(prev => prev.map(r => r.id === editingId ? { ...r, ...payload } : r));
     } else {
-      await supabase.from('transactions').insert(payload);
+      const { data } = await supabase.from('transactions').insert(payload).select().single();
+      if (data) setRows(prev => [data as Transaction, ...prev]);
     }
     setSaving(false);
     cancelEdit();
-    load();
+    load(true);
   }
 
   async function handleDelete(id: string) {
-    await supabase.from('transactions').delete().eq('id', id);
+    setRows(prev => prev.filter(r => r.id !== id));
     setDeleteConfirm(null);
-    load();
+    await supabase.from('transactions').delete().eq('id', id);
+    load(true);
   }
 
   // ── 렌더 ──────────────────────────────────────────────────────────
