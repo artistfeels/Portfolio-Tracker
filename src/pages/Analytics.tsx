@@ -427,9 +427,10 @@ export default function Analytics({ portfolio }: { portfolio: PortfolioState }) 
   const [excludedTickers, setExcludedTickers] = useState<Set<string>>(new Set());
   const [expandedMdd, setExpandedMdd] = useState(false);
   const [expandedCagr, setExpandedCagr] = useState(false);
-  const [cagrYears, setCagrYears] = useState(5);
+  const [cagrYears, setCagrYears] = useState(3);
   const [expandedAlpha, setExpandedAlpha] = useState(false);
   const [expandedExpected, setExpandedExpected] = useState(false);
+  const [expandedIrrContrib, setExpandedIrrContrib] = useState(false);
   const [benchmarkStart, setBenchmarkStart] = useState<string>('');
   const benchmarkInitRef = useRef(false);
 
@@ -543,6 +544,22 @@ export default function Analytics({ portfolio }: { portfolio: PortfolioState }) 
     const { rfAnnual, beta: b, R_m_ann } = riskDetail;
     return rfAnnual + (b ?? 0) * (R_m_ann - rfAnnual);
   }, [riskDetail]);
+
+  // ΔIRR 기여도: 포트폴리오 IRR - 해당 종목 제외 IRR, × 원금비중
+  const irrContributions = useMemo(() => {
+    const portIrr = summary.portfolioIrr;
+    if (!holdingIrrs.length || portIrr === null || !txsSorted.length) return [];
+    const totalInvested = holdingIrrs.reduce((s, h) => s + h.invested_krw, 0);
+    if (totalInvested === 0) return [];
+    return holdingIrrs.map(h => {
+      const filtTxs = txsSorted.filter(t => t.ticker !== h.ticker);
+      const filtHoldings = holdings.filter(hh => hh.ticker !== h.ticker);
+      const irrWithout = filtTxs.length > 0 ? (calcPortfolioIrr(filtTxs, filtHoldings) ?? 0) : 0;
+      const deltaIrr = portIrr - irrWithout;
+      const weight = h.invested_krw / totalInvested;
+      return { ...h, deltaIrr, weight, contrib: deltaIrr * weight };
+    }).sort((a, b) => b.contrib - a.contrib);
+  }, [holdingIrrs, summary.portfolioIrr, txsSorted, holdings]);
 
   // usePortfolio가 거래내역 로딩에 실패한 경우에만 에러 표시.
   if (portfolioStatus === 'error') {
@@ -1006,57 +1023,59 @@ export default function Analytics({ portfolio }: { portfolio: PortfolioState }) 
       </div>
       )}
 
-      {/* IRR 수익 기여도 차트 */}
-      {holdingIrrs.length > 0 && (() => {
-        const totalInvested = holdingIrrs.reduce((s, h) => s + h.invested_krw, 0);
-        if (totalInvested === 0) return null;
-        const rawList = holdingIrrs.map(h => ({
-          ...h,
-          weight: h.invested_krw / totalInvested,
-          rawC: (h.irr ?? 0) * (h.invested_krw / totalInvested),
-        }));
-        const rawSum = rawList.reduce((s, h) => s + h.rawC, 0);
-        const portIrr = summary.portfolioIrr ?? rawSum;
-        const scale = Math.abs(rawSum) > 0.0001 ? portIrr / rawSum : 1;
-        const contribs = rawList
-          .map(h => ({ ...h, contrib: h.rawC * scale }))
-          .sort((a, b) => b.contrib - a.contrib);
-        const maxAbs = Math.max(...contribs.map(h => Math.abs(h.contrib)), 0.001);
-
-        return (
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 14, overflow: 'hidden', marginBottom: 24 }}>
-            <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--bg-tertiary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>IRR 수익 기여도</div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>원금비중 × 개별IRR → 포트폴리오 IRR 기여분</div>
+      {/* IRR 수익 기여도 차트 (접이식) */}
+      {holdingIrrs.length > 0 && (
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 14, overflow: 'hidden', marginBottom: 24 }}>
+          <div
+            onClick={() => setExpandedIrrContrib(v => !v)}
+            style={{ padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', borderBottom: expandedIrrContrib ? '1px solid var(--bg-tertiary)' : 'none' }}
+          >
+            <div style={{ fontSize: 13, fontWeight: 600 }}>IRR 수익 기여도 (ΔIRR × 원금비중)</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>종목 제외 시 ΔIRR × 원금비중</div>
+              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{expandedIrrContrib ? '▲' : '▼'}</span>
             </div>
-            <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {contribs.map(h => {
-                const c = h.contrib;
-                const color = c >= 0 ? 'var(--up)' : 'var(--down)';
-                const barW = Math.abs(c) / maxAbs * 100;
+          </div>
+          {expandedIrrContrib && (
+            <div style={{ padding: '16px 20px' }}>
+              {irrContributions.length === 0 ? (
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>심층 분석 실행 후 표시됩니다</div>
+              ) : (() => {
+                const maxAbs = Math.max(...irrContributions.map(h => Math.abs(h.contrib)), 0.001);
+                const portIrr = summary.portfolioIrr;
                 return (
-                  <div key={h.ticker} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ width: 88, fontSize: 12, fontWeight: 500, color: 'var(--text-primary)', textAlign: 'right', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.name}</div>
-                    <div style={{ width: 38, fontSize: 10, color: 'var(--text-muted)', textAlign: 'right', flexShrink: 0 }}>{(h.weight * 100).toFixed(0)}%</div>
-                    <div style={{ flex: 1, height: 22, background: 'var(--bg-tertiary)', borderRadius: 6, overflow: 'hidden' }}>
-                      <div style={{ width: `${barW}%`, height: '100%', background: color, borderRadius: 6, opacity: 0.82, transition: 'width 0.6s ease', minWidth: 2 }} />
-                    </div>
-                    <div style={{ width: 58, fontSize: 12, color, textAlign: 'right', flexShrink: 0, fontWeight: 700 }}>
-                      {c >= 0 ? '+' : ''}{(c * 100).toFixed(2)}%p
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {irrContributions.map(h => {
+                      const c = h.contrib;
+                      const color = c >= 0 ? 'var(--up)' : 'var(--down)';
+                      const barW = Math.abs(c) / maxAbs * 100;
+                      const label = /^\d{6}$/.test(h.ticker) ? h.name : h.ticker;
+                      return (
+                        <div key={h.ticker} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{ width: 92, fontSize: 12, fontWeight: 500, color: 'var(--text-primary)', textAlign: 'right', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</div>
+                          <div style={{ width: 36, fontSize: 10, color: 'var(--text-muted)', textAlign: 'right', flexShrink: 0 }}>{(h.weight * 100).toFixed(0)}%</div>
+                          <div style={{ flex: 1, height: 22, background: 'var(--bg-tertiary)', borderRadius: 6, overflow: 'hidden' }}>
+                            <div style={{ width: `${barW}%`, height: '100%', background: color, borderRadius: 6, opacity: 0.82, transition: 'width 0.6s ease', minWidth: 2 }} />
+                          </div>
+                          <div style={{ width: 60, fontSize: 12, color, textAlign: 'right', flexShrink: 0, fontWeight: 700 }}>
+                            {c >= 0 ? '+' : ''}{(c * 100).toFixed(2)}%p
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div style={{ borderTop: '1px dashed var(--border-primary)', paddingTop: 8, display: 'flex', justifyContent: 'flex-end', gap: 10, alignItems: 'center' }}>
+                      <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>포트폴리오 IRR</span>
+                      <span style={{ fontSize: 15, fontWeight: 700, color: (portIrr ?? 0) >= 0 ? 'var(--up)' : 'var(--down)' }}>
+                        {portIrr !== null ? ((portIrr >= 0 ? '+' : '') + (portIrr * 100).toFixed(2) + '%') : '-'}
+                      </span>
                     </div>
                   </div>
                 );
-              })}
-              <div style={{ borderTop: '1px dashed var(--border-primary)', paddingTop: 8, display: 'flex', justifyContent: 'flex-end', gap: 10, alignItems: 'center' }}>
-                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>포트폴리오 IRR 합계</span>
-                <span style={{ fontSize: 15, fontWeight: 700, color: (portIrr ?? 0) >= 0 ? 'var(--up)' : 'var(--down)' }}>
-                  {portIrr !== null ? ((portIrr >= 0 ? '+' : '') + (portIrr * 100).toFixed(2) + '%') : '-'}
-                </span>
-              </div>
+              })()}
             </div>
-          </div>
-        );
-      })()}
+          )}
+        </div>
+      )}
 
       {/* 종목별 IRR 테이블 */}
       <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 14, overflow: 'hidden' }}>

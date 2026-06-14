@@ -14,79 +14,120 @@ interface Props {
 
 const PALETTE = ['#a78bfa','#60a5fa','#34d399','#f472b6','#fbbf24','#fb7185','#38bdf8','#4ade80','#c084fc','#f97316','#e879f9','#2dd4bf'];
 
-function DonutChart({ items }: { items: { label: string; value: number; color: string }[] }) {
+// 해외 종목은 티커, 한국(6자리숫자) 종목은 이름
+function displayLabel(ticker: string, name: string): string {
+  return /^\d{6}$/.test(ticker) ? name : ticker;
+}
+
+// ── Binary-split treemap layout ──────────────────────
+type TItem = { label: string; value: number; color: string };
+type TRect = TItem & { x: number; y: number; w: number; h: number };
+
+function buildTreemap(items: TItem[], x: number, y: number, w: number, h: number): TRect[] {
+  if (items.length === 0) return [];
+  if (items.length === 1) return [{ ...items[0], x, y, w, h }];
+  const total = items.reduce((s, i) => s + i.value, 0);
+  let acc = 0, split = 1;
+  for (let i = 0; i < items.length - 1; i++) {
+    acc += items[i].value;
+    split = i + 1;
+    if (acc >= total / 2) break;
+  }
+  const first = items.slice(0, split), rest = items.slice(split);
+  const ratio = first.reduce((s, i) => s + i.value, 0) / total;
+  if (w >= h) {
+    const w1 = w * ratio;
+    return [...buildTreemap(first, x, y, w1, h), ...buildTreemap(rest, x + w1, y, w - w1, h)];
+  } else {
+    const h1 = h * ratio;
+    return [...buildTreemap(first, x, y, w, h1), ...buildTreemap(rest, x, y + h1, w, h - h1)];
+  }
+}
+
+// ── SVG Donut chart ──────────────────────────────────
+function DonutChart({ items }: { items: TItem[] }) {
   const total = items.reduce((s, i) => s + i.value, 0);
   if (total === 0) return null;
-  let acc = 0;
-  const gradient = items.map(item => {
-    const pct = (item.value / total) * 100;
-    const res = `${item.color} ${acc.toFixed(2)}% ${(acc + pct).toFixed(2)}%`;
-    acc += pct;
-    return res;
-  }).join(', ');
+  const cx = 110, cy = 110, R = 100, r = 56;
+  let angle = -Math.PI / 2;
+  const c = (a: number, rr: number) => ({ x: cx + rr * Math.cos(a), y: cy + rr * Math.sin(a) });
+  const segments = items.map(item => {
+    const pct = item.value / total;
+    const sweep = pct * 2 * Math.PI;
+    const sa = angle, ea = angle + sweep;
+    angle = ea;
+    const mid = (sa + ea) / 2;
+    const lg = sweep > Math.PI ? 1 : 0;
+    const p1 = c(sa, R), p2 = c(ea, R), p3 = c(ea, r), p4 = c(sa, r);
+    const path = `M${p1.x} ${p1.y} A${R} ${R} 0 ${lg} 1 ${p2.x} ${p2.y} L${p3.x} ${p3.y} A${r} ${r} 0 ${lg} 0 ${p4.x} ${p4.y}Z`;
+    const tr = (R + r) / 2;
+    return { ...item, path, tx: c(mid, tr).x, ty: c(mid, tr).y, pct };
+  });
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
-      <div style={{ position: 'relative', width: 164, height: 164, flexShrink: 0 }}>
-        <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: `conic-gradient(${gradient})`, transform: 'rotate(-90deg)' }} />
-        <div style={{ position: 'absolute', inset: '27%', borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)' }}>{items.length}</div>
-            <div style={{ fontSize: 10, color: 'var(--text-secondary)' }}>종목</div>
-          </div>
-        </div>
-      </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 10px', justifyContent: 'center' }}>
-        {items.map(item => (
-          <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11 }}>
-            <div style={{ width: 8, height: 8, borderRadius: 2, background: item.color, flexShrink: 0 }} />
-            <span style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{item.label}</span>
-          </div>
-        ))}
-      </div>
-    </div>
+    <svg width="100%" viewBox="0 0 220 220" style={{ display: 'block' }}>
+      {segments.map((seg, i) => (
+        <g key={i}>
+          <path d={seg.path} fill={seg.color} />
+          {seg.pct > 0.05 && (
+            <text x={seg.tx} y={seg.ty - (seg.pct > 0.09 ? 6 : 0)}
+              textAnchor="middle" dominantBaseline="middle"
+              fill="white" fontSize={seg.pct > 0.13 ? 10 : 8} fontWeight={700} style={{ pointerEvents: 'none' }}>
+              {seg.label.length > 8 ? seg.label.slice(0, 7) + '…' : seg.label}
+            </text>
+          )}
+          {seg.pct > 0.09 && (
+            <text x={seg.tx} y={seg.ty + 8}
+              textAnchor="middle" dominantBaseline="middle"
+              fill="rgba(255,255,255,0.85)" fontSize={8} style={{ pointerEvents: 'none' }}>
+              {(seg.pct * 100).toFixed(1)}%
+            </text>
+          )}
+        </g>
+      ))}
+      <circle cx={cx} cy={cy} r={r - 1} fill="var(--bg-card)" />
+      <text x={cx} y={cy - 8} textAnchor="middle" dominantBaseline="middle" fill="var(--text-primary)" fontSize={22} fontWeight={700}>{items.length}</text>
+      <text x={cx} y={cy + 13} textAnchor="middle" dominantBaseline="middle" fill="var(--text-secondary)" fontSize={11}>종목</text>
+    </svg>
   );
 }
 
-function Treemap({ items }: { items: { label: string; value: number; color: string }[] }) {
+// ── SVG Treemap ──────────────────────────────────────
+function Treemap({ items }: { items: TItem[] }) {
   const sorted = [...items].sort((a, b) => b.value - a.value);
   const total = sorted.reduce((s, i) => s + i.value, 0);
   if (total === 0) return null;
+  const W = 360, H = 230, G = 3;
+  const rects = buildTreemap(sorted, 0, 0, W, H);
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignContent: 'flex-start', minHeight: 180 }}>
-      {sorted.map(item => {
-        const pct = item.value / total * 100;
-        const h = pct > 28 ? 90 : pct > 14 ? 66 : pct > 6 ? 48 : 34;
+    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
+      {rects.map((rect, i) => {
+        const pct = rect.value / total;
+        const rx = rect.x + G / 2, ry = rect.y + G / 2;
+        const rw = rect.w - G, rh = rect.h - G;
+        const showLabel = rw > 36 && rh > 22;
+        const showPct = rw > 50 && rh > 38;
+        const fs = Math.min(13, Math.max(8, Math.min(rw * 0.18, rh * 0.3)));
         return (
-          <div key={item.label} style={{ width: `calc(${pct}% - 4px)`, minWidth: 28, height: h, background: item.color, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
-            {pct > 7 && (
-              <div style={{ textAlign: 'center', color: '#fff', padding: 4 }}>
-                <div style={{ fontSize: Math.max(9, Math.min(13, pct * 0.75)), fontWeight: 700, lineHeight: 1.2 }}>{item.label}</div>
-                <div style={{ fontSize: 9, opacity: 0.85 }}>{pct.toFixed(1)}%</div>
-              </div>
+          <g key={i}>
+            <rect x={rx} y={ry} width={rw} height={rh} fill={rect.color} rx={8} />
+            {showLabel && (
+              <text x={rx + rw / 2} y={ry + rh / 2 + (showPct ? -7 : 0)}
+                textAnchor="middle" dominantBaseline="middle"
+                fill="white" fontSize={fs} fontWeight={700} style={{ pointerEvents: 'none' }}>
+                {rect.label.length > 10 ? rect.label.slice(0, 9) + '…' : rect.label}
+              </text>
             )}
-          </div>
+            {showPct && (
+              <text x={rx + rw / 2} y={ry + rh / 2 + 9}
+                textAnchor="middle" dominantBaseline="middle"
+                fill="rgba(255,255,255,0.82)" fontSize={9} style={{ pointerEvents: 'none' }}>
+                {(pct * 100).toFixed(1)}%
+              </text>
+            )}
+          </g>
         );
       })}
-    </div>
-  );
-}
-
-function ReturnBars({ items }: { items: { label: string; pct: number; color: string }[] }) {
-  const maxAbs = Math.max(...items.map(i => Math.abs(i.pct)), 0.01);
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-      {[...items].sort((a, b) => b.pct - a.pct).map(item => (
-        <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ width: 68, fontSize: 11, color: 'var(--text-secondary)', textAlign: 'right', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</div>
-          <div style={{ flex: 1, height: 20, background: 'var(--bg-tertiary)', borderRadius: 5, overflow: 'hidden' }}>
-            <div style={{ width: `${Math.abs(item.pct) / maxAbs * 100}%`, height: '100%', background: item.color, borderRadius: 5, transition: 'width 0.6s ease' }} />
-          </div>
-          <div style={{ width: 54, fontSize: 11, color: item.color, textAlign: 'right', flexShrink: 0, fontWeight: 700 }}>
-            {(item.pct >= 0 ? '+' : '') + item.pct.toFixed(1)}%
-          </div>
-        </div>
-      ))}
-    </div>
+    </svg>
   );
 }
 
@@ -466,37 +507,26 @@ export default function Dashboard({ portfolio, theme = 'dark' }: Props) {
       {/* ── 인포그래픽 섹션 ──────────────────────────── */}
       {showInfoViz && (
         <div style={{ marginBottom: 16, animation: 'fadeSlideIn 0.3s ease' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             {/* 평가금액 원형 차트 */}
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 14, padding: '16px 20px' }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 16 }}>평가금액 구성</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 12 }}>평가금액 구성</div>
               <DonutChart
                 items={sortedHoldings.map((h, i) => ({
-                  label: h.name,
+                  label: displayLabel(h.ticker, h.name),
                   value: h.market_value_krw,
                   color: PALETTE[i % PALETTE.length],
                 }))}
               />
             </div>
-            {/* 비중 트리맵 */}
+            {/* 보유 비중 트리맵 */}
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 14, padding: '16px 20px' }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 12 }}>보유 비중 맵</div>
               <Treemap
                 items={sortedHoldings.map((h, i) => ({
-                  label: h.name,
+                  label: displayLabel(h.ticker, h.name),
                   value: h.market_value_krw,
                   color: PALETTE[i % PALETTE.length],
-                }))}
-              />
-            </div>
-            {/* 수익률 막대 */}
-            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 14, padding: '16px 20px' }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 12 }}>종목별 수익률</div>
-              <ReturnBars
-                items={sortedHoldings.map(h => ({
-                  label: h.name,
-                  pct: h.profit_pct,
-                  color: h.profit_pct >= 0 ? 'var(--up)' : 'var(--down)',
                 }))}
               />
             </div>
