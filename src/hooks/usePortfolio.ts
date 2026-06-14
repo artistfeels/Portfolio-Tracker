@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { calcHoldings, calcSummary } from '../lib/calc';
-import { fetchPrice, fetchUsdKrw } from '../lib/prices';
+import { fetchPrice, fetchUsdKrw, getCachedPrice } from '../lib/prices';
 import type { Transaction, HoldingWithPrice } from '../lib/types';
 
 export type LoadStatus = 'idle' | 'loading' | 'done' | 'error';
@@ -37,21 +37,28 @@ export function usePortfolio() {
       setTransactions(txs);
       const rawHoldings = calcHoldings(txs);
 
-      // 2. Immediately show table with avg prices as placeholder (no rate needed)
+      // 2. Immediately show table — use localStorage cached prices if available, else avg as placeholder
       if (!silent) {
-        const placeholder: HoldingWithPrice[] = rawHoldings.map(h => ({
-          ...h,
-          current_price_krw: h.avg_price_krw,
-          market_value_krw: Math.round(h.avg_price_krw * h.shares),
-          profit_krw: 0,
-          profit_pct: 0,
-          price_source: 'loading',
-          daily_change_pct: null as number | null,
-          prev_close_krw: 0,
-        }));
+        const placeholder: HoldingWithPrice[] = rawHoldings.map(h => {
+          const cached = getCachedPrice(h.ticker);
+          const current = cached?.price_krw || h.avg_price_krw;
+          const marketVal = Math.round(current * h.shares);
+          const profit = marketVal - h.total_principal_krw;
+          return {
+            ...h,
+            name: cached?.display_name ?? h.name,
+            current_price_krw: current,
+            market_value_krw: marketVal,
+            profit_krw: cached ? profit : 0,
+            profit_pct: cached && h.total_principal_krw > 0 ? (profit / h.total_principal_krw) * 100 : 0,
+            price_source: cached ? 'cache' : 'loading',
+            daily_change_pct: cached?.daily_change_pct ?? null,
+            prev_close_krw: cached?.prev_close_krw ?? 0,
+          };
+        });
         setHoldings(placeholder);
         setSummary(calcSummary(placeholder));
-        setStatus('done'); // Table is visible NOW, prices fill in below
+        setStatus('done'); // Table is visible NOW, prices refresh in background
       }
 
       // 3. Fetch rate + cash in parallel

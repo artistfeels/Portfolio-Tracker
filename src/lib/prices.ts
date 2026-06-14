@@ -13,6 +13,33 @@ interface CacheEntry {
 
 const priceCache = new Map<string, CacheEntry>();
 
+const STORAGE_KEY = 'pt_price_cache_v1';
+
+function loadStorageCache() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const stored: Record<string, CacheEntry> = JSON.parse(raw);
+    for (const [ticker, entry] of Object.entries(stored)) {
+      priceCache.set(ticker, entry);
+    }
+  } catch {}
+}
+
+function saveStorageCache() {
+  try {
+    const obj: Record<string, CacheEntry> = {};
+    priceCache.forEach((v, k) => { obj[k] = v; });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
+  } catch {}
+}
+
+loadStorageCache();
+
+export function getCachedPrice(ticker: string): CacheEntry | undefined {
+  return priceCache.get(ticker);
+}
+
 export const KR_TICKER_SUFFIX: Record<string, string> = {
   '000660': 'KS',
   '368590': 'KS',
@@ -210,6 +237,7 @@ export async function fetchPrice(ticker: string, usdKrwRate: number): Promise<Pr
 
   if (price_krw) {
     priceCache.set(ticker, { price_krw, daily_change_pct, prev_close_krw, display_name, fetched_at: now });
+    saveStorageCache();
   }
   return result;
 }
