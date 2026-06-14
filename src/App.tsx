@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import Transactions from './pages/Transactions';
 import Analytics from './pages/Analytics';
 import { usePortfolio } from './hooks/usePortfolio';
+import { useIsMobile } from './hooks/useIsMobile';
 import { supabase } from './lib/supabaseClient';
 
 export type Theme = 'light' | 'dark';
@@ -132,14 +133,15 @@ const inputStyle: React.CSSProperties = {
 function AuthenticatedApp({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () => void }) {
   const [page, setPage] = useState<Page>('dashboard');
   const portfolio = usePortfolio();
+  const isMobile = useIsMobile();
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', width: '100%', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontFamily: 'sans-serif' }}>
-      <Sidebar current={page} onNavigate={setPage} theme={theme} onToggleTheme={onToggleTheme} />
-      <main style={{ flex: 1, overflow: 'auto', minWidth: 0 }}>
-        <div style={{ display: page === 'dashboard'    ? 'block' : 'none' }}><Dashboard portfolio={portfolio} theme={theme} /></div>
-        <div style={{ display: page === 'transactions' ? 'block' : 'none' }}><Transactions /></div>
-        <div style={{ display: page === 'analytics'   ? 'block' : 'none' }}><Analytics portfolio={portfolio} /></div>
+      <Sidebar current={page} onNavigate={setPage} theme={theme} onToggleTheme={onToggleTheme} isMobile={isMobile} />
+      <main style={{ flex: 1, overflow: 'auto', minWidth: 0, paddingBottom: isMobile ? 64 : 0 }}>
+        <div style={{ display: page === 'dashboard'    ? 'block' : 'none' }}><Dashboard portfolio={portfolio} theme={theme} isMobile={isMobile} /></div>
+        <div style={{ display: page === 'transactions' ? 'block' : 'none' }}><Transactions isMobile={isMobile} /></div>
+        <div style={{ display: page === 'analytics'   ? 'block' : 'none' }}><Analytics portfolio={portfolio} isMobile={isMobile} /></div>
       </main>
     </div>
   );

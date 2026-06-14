@@ -10,6 +10,7 @@ type PortfolioState = ReturnType<typeof usePortfolio>;
 interface Props {
   portfolio: PortfolioState;
   theme?: 'light' | 'dark';
+  isMobile?: boolean;
 }
 
 const PALETTE = ['#a78bfa','#60a5fa','#34d399','#f472b6','#fbbf24','#fb7185','#38bdf8','#4ade80','#c084fc','#f97316','#e879f9','#2dd4bf'];
@@ -162,7 +163,7 @@ function nativeChange(ticker: string, krwChange: number, usdKrw: number): string
   return (v >= 0 ? '+' : '-') + '$' + Math.abs(v).toFixed(2);
 }
 
-export default function Dashboard({ portfolio, theme = 'dark' }: Props) {
+export default function Dashboard({ portfolio, theme = 'dark', isMobile = false }: Props) {
   const { transactions, holdings, summary, usdKrw, status, isRefreshing, error, lastUpdated, reload, updateCash } = portfolio;
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
   const [tab, setTab] = useState<'시세' | '평가'>('시세');
@@ -305,10 +306,10 @@ export default function Dashboard({ portfolio, theme = 'dark' }: Props) {
   }
 
   return (
-    <div style={{ padding: '20px 8px', minWidth: 0 }}>
+    <div style={{ padding: isMobile ? '12px 8px' : '20px 8px', minWidth: 0 }}>
 
       {/* ── 헤더 ──────────────────────────────────────── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+      <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'flex-start', gap: isMobile ? 8 : 0, marginBottom: 16 }}>
         <div>
           <div style={{ fontSize: 34, fontWeight: 700, letterSpacing: -1, lineHeight: 1, whiteSpace: 'nowrap' }}>
             {fmtKrw(summary.totalValue)}
@@ -347,7 +348,7 @@ export default function Dashboard({ portfolio, theme = 'dark' }: Props) {
       </div>
 
       {/* ── 요약 카드 6개 ─────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10, marginBottom: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : 'repeat(6, 1fr)', gap: 8, marginBottom: 12 }}>
         {[
           { label: '투자원금', value: fmtKrw(summary.totalPrincipal), color: 'var(--text-primary)' },
           {
@@ -432,7 +433,7 @@ export default function Dashboard({ portfolio, theme = 'dark' }: Props) {
       )}
 
       {/* ── 자산 구성 + 오늘의 움직임 ────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: showMovers ? '1fr 1fr' : '1fr', gap: 10, marginBottom: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: (!isMobile && showMovers) ? '1fr 1fr' : '1fr', gap: 10, marginBottom: 16 }}>
 
         {/* 자산 구성 */}
         {assetGroups.length > 0 && (
@@ -558,7 +559,7 @@ export default function Dashboard({ portfolio, theme = 'dark' }: Props) {
       </div>
 
       {/* ── 테이블 ────────────────────────────────────── */}
-      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderTop: 'none', borderRadius: '0 0 8px 8px', overflow: 'hidden' }}>
+      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderTop: 'none', borderRadius: '0 0 8px 8px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
         {tab === '시세' ? (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>

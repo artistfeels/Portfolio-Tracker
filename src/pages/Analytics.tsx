@@ -415,7 +415,7 @@ const detailNote: React.CSSProperties = {
 };
 
 // ── 메인 컴포넌트 ───────────────────────────────────────────────────
-export default function Analytics({ portfolio }: { portfolio: PortfolioState }) {
+export default function Analytics({ portfolio, isMobile = false }: { portfolio: PortfolioState; isMobile?: boolean }) {
   const { transactions, holdings, usdKrw, status: portfolioStatus, error: portfolioError } = portfolio;
   const { summary, holdingIrrs, chartStatus, history, riskDetail, benchmarkData, loadCharts } =
     useAnalytics(transactions, holdings, usdKrw);
@@ -585,7 +585,7 @@ export default function Analytics({ portfolio }: { portfolio: PortfolioState }) 
 
 
   return (
-    <div style={{ padding: '24px 32px' }}>
+    <div style={{ padding: isMobile ? '16px 12px' : '24px 32px' }}>
       {/* 헤더 + 기간 필터 */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <div style={{ fontSize: 18, fontWeight: 700 }}>애널리틱스</div>
@@ -610,7 +610,7 @@ export default function Analytics({ portfolio }: { portfolio: PortfolioState }) 
 
       {/* 상단 요약 카드 + 확장 패널 */}
       <div style={{ marginBottom: 24 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 12 }}>
           {/* IRR 카드 */}
           <div
             onClick={() => setExpandedIrr(v => !v)}
@@ -798,7 +798,7 @@ export default function Analytics({ portfolio }: { portfolio: PortfolioState }) 
         )}
 
         {/* 추가 지표: CAGR · 알파 α · 연간 변동성 σ */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginTop: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 12, marginTop: 12 }}>
           {/* CAGR 카드 */}
           <div
             onClick={() => setExpandedCagr(v => !v)}

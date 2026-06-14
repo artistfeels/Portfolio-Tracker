@@ -154,7 +154,7 @@ function TxForm({ title, form, saving, onChange, onSave, onCancel }: TxFormProps
 }
 
 // ── 메인 컴포넌트 ──────────────────────────────────────────────────────
-export default function Transactions() {
+export default function Transactions({ isMobile = false }: { isMobile?: boolean }) {
   const [rows, setRows] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [addingNew, setAddingNew] = useState(false);
@@ -331,7 +331,7 @@ export default function Transactions() {
 
   // ── 렌더 ──────────────────────────────────────────────────────────
   return (
-    <div style={{ padding: '24px 32px' }}>
+    <div style={{ padding: isMobile ? '16px 10px' : '24px 32px' }}>
       {/* 헤더 툴바 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 18, fontWeight: 700 }}>거래내역</span>
@@ -438,8 +438,8 @@ export default function Transactions() {
       {loading ? (
         <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>로딩 중...</div>
       ) : (
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, overflowX: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+          <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>
                 {['날짜', '종목명', '티커', '구분', '수량', '단가(KRW)', '섹터', '지역', ''].map((h, i) => (
