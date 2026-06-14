@@ -311,10 +311,10 @@ export default function Dashboard({ portfolio, theme = 'dark', isMobile = false 
       {/* ── 헤더 ──────────────────────────────────────── */}
       <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'flex-start', gap: isMobile ? 8 : 0, marginBottom: 16 }}>
         <div>
-          <div style={{ fontSize: 34, fontWeight: 700, letterSpacing: -1, lineHeight: 1, whiteSpace: 'nowrap' }}>
+          <div style={{ fontSize: isMobile ? 24 : 34, fontWeight: 700, letterSpacing: -1, lineHeight: 1 }}>
             {fmtKrw(summary.totalValue)}
           </div>
-          <div style={{ marginTop: 6, fontSize: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ marginTop: 6, fontSize: isMobile ? 13 : 16, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: isMobile ? 4 : 8 }}>
             {hasDailyData ? (
               <>
                 <span style={{ color: dailyColor, fontWeight: 600 }}>
@@ -332,23 +332,21 @@ export default function Dashboard({ portfolio, theme = 'dark', isMobile = false 
           </div>
         </div>
 
-        <div style={{ textAlign: 'right', fontSize: 12, color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {isRefreshing && <span style={{ color: 'var(--down)', fontSize: 11 }}>● 업데이트 중</span>}
-            {lastUpdated && !isRefreshing && <span>{timeSince(lastUpdated)} 업데이트</span>}
-            <button
-              onClick={() => reload()}
-              style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', padding: '5px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}
-            >
-              새로고침
-            </button>
-          </div>
-          {usdKrw > 0 && <div>USD/KRW {usdKrw.toLocaleString()}</div>}
+        <div style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'flex', flexDirection: isMobile ? 'row' : 'column', alignItems: isMobile ? 'center' : 'flex-end', gap: isMobile ? 6 : 4 }}>
+          {isRefreshing && <span style={{ color: 'var(--down)', fontSize: 10 }}>● 업데이트 중</span>}
+          {lastUpdated && !isRefreshing && <span style={{ fontSize: 10 }}>{timeSince(lastUpdated)} 업데이트</span>}
+          {usdKrw > 0 && !isMobile && <div>USD/KRW {usdKrw.toLocaleString()}</div>}
+          <button
+            onClick={() => reload()}
+            style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', padding: isMobile ? '4px 8px' : '5px 12px', borderRadius: 6, cursor: 'pointer', fontSize: isMobile ? 11 : 12 }}
+          >
+            새로고침
+          </button>
         </div>
       </div>
 
       {/* ── 요약 카드 6개 ─────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : 'repeat(6, 1fr)', gap: 8, marginBottom: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(6, 1fr)', gap: isMobile ? 6 : 8, marginBottom: 12 }}>
         {[
           { label: '투자원금', value: fmtKrw(summary.totalPrincipal), color: 'var(--text-primary)' },
           {
@@ -374,11 +372,11 @@ export default function Dashboard({ portfolio, theme = 'dark', isMobile = false 
             color: portfolioIrr !== null ? (portfolioIrr >= 0 ? 'var(--up)' : 'var(--down)') : 'var(--text-secondary)',
           },
         ].map((c) => (
-          <div key={c.label} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 14, padding: '12px 16px' }}>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 5 }}>{c.label}</div>
-            <div style={{ fontSize: 19, fontWeight: 700, color: c.color, whiteSpace: 'nowrap' }}>{c.value}</div>
+          <div key={c.label} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 10, padding: isMobile ? '8px 10px' : '12px 16px' }}>
+            <div style={{ fontSize: isMobile ? 10 : 12, color: 'var(--text-secondary)', marginBottom: isMobile ? 3 : 5 }}>{c.label}</div>
+            <div style={{ fontSize: isMobile ? 14 : 19, fontWeight: 700, color: c.color }}>{c.value}</div>
             {'sub' in c && c.sub && (
-              <div style={{ fontSize: 13, color: c.color, marginTop: 2 }}>{c.sub}</div>
+              <div style={{ fontSize: isMobile ? 11 : 13, color: c.color, marginTop: 2 }}>{c.sub}</div>
             )}
           </div>
         ))}
@@ -386,8 +384,8 @@ export default function Dashboard({ portfolio, theme = 'dark', isMobile = false 
         {(() => {
           const cashVal = holdings.find(h => h.ticker === 'CASH')?.market_value_krw ?? 0;
           return (
-            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 14, padding: '12px 16px' }}>
-              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 5 }}>현금</div>
+            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 10, padding: isMobile ? '8px 10px' : '12px 16px' }}>
+              <div style={{ fontSize: isMobile ? 10 : 12, color: 'var(--text-secondary)', marginBottom: isMobile ? 3 : 5 }}>현금</div>
               {editingCash ? (
                 <input
                   autoFocus
@@ -409,7 +407,7 @@ export default function Dashboard({ portfolio, theme = 'dark', isMobile = false 
                 <div
                   onClick={() => { setCashInput(cashVal.toString()); setEditingCash(true); }}
                   title="클릭해서 편집"
-                  style={{ fontSize: 19, fontWeight: 700, color: '#3fb950', whiteSpace: 'nowrap', cursor: 'text', borderBottom: '1px dashed var(--border-primary)', display: 'inline-block' }}
+                  style={{ fontSize: isMobile ? 14 : 19, fontWeight: 700, color: '#3fb950', cursor: 'text', borderBottom: '1px dashed var(--border-primary)', display: 'inline-block' }}
                 >
                   {fmtKrw(cashVal)}
                 </div>
@@ -564,16 +562,16 @@ export default function Dashboard({ portfolio, theme = 'dark', isMobile = false 
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
               <tr style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', fontSize: 12 }}>
-                <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 500 }}>종목</th>
-                <th style={{ padding: '10px 14px', width: 120, fontWeight: 500 }}></th>
-                <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 500, whiteSpace: 'nowrap' }}>수량</th>
-                <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 500, whiteSpace: 'nowrap' }}>평균단가</th>
-                <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 500, whiteSpace: 'nowrap' }}>현재가</th>
-                <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 500, whiteSpace: 'nowrap' }}>전일대비</th>
+                <th style={{ padding: isMobile ? '9px 10px' : '10px 14px', textAlign: 'left', fontWeight: 500 }}>종목</th>
+                {!isMobile && <th style={{ padding: '10px 14px', width: 120, fontWeight: 500 }}></th>}
+                {!isMobile && <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 500, whiteSpace: 'nowrap' }}>수량</th>}
+                {!isMobile && <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 500, whiteSpace: 'nowrap' }}>평균단가</th>}
+                <th style={{ padding: isMobile ? '9px 8px' : '10px 14px', textAlign: 'right', fontWeight: 500, whiteSpace: 'nowrap' }}>현재가</th>
+                {!isMobile && <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 500, whiteSpace: 'nowrap' }}>전일대비</th>}
                 <SortTh label="등락률" k="daily_change" />
                 <SortTh label="평가금액" k="market_value" />
-                <SortTh label="일간 손익" k="daily_pnl" />
-                <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 500, whiteSpace: 'nowrap' }}>비중</th>
+                {!isMobile && <SortTh label="일간 손익" k="daily_pnl" />}
+                {!isMobile && <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 500, whiteSpace: 'nowrap' }}>비중</th>}
               </tr>
             </thead>
             <tbody>
@@ -600,42 +598,42 @@ export default function Dashboard({ portfolio, theme = 'dark', isMobile = false 
                         animationDelay: `${i * 0.045}s`,
                       }}
                     >
-                      <td style={{ padding: '9px 14px', whiteSpace: 'nowrap' }}>
-                        <div style={{ fontWeight: 600, fontSize: 14 }}>{h.name}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 1 }}>{h.ticker}</div>
+                      <td style={{ padding: isMobile ? '8px 10px' : '9px 14px', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontWeight: 600, fontSize: isMobile ? 13 : 14 }}>{h.name}</div>
+                        <div style={{ fontSize: isMobile ? 10 : 11, color: 'var(--text-secondary)', marginTop: 1 }}>{h.ticker}</div>
                       </td>
-                      <td style={{ padding: '4px 8px', width: 120 }}>
+                      {!isMobile && <td style={{ padding: '4px 8px', width: 120 }}>
                         {!isLoading && <SparkLine ticker={h.ticker} dailyChangePct={h.daily_change_pct} />}
-                      </td>
-                      <td style={{ padding: '9px 14px', textAlign: 'right', color: 'var(--text-secondary)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                      </td>}
+                      {!isMobile && <td style={{ padding: '9px 14px', textAlign: 'right', color: 'var(--text-secondary)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
                         {h.ticker === 'CASH' ? '-' : h.shares.toLocaleString('ko-KR')}
-                      </td>
-                      <td style={{ padding: '9px 14px', textAlign: 'right', color: 'var(--text-secondary)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                      </td>}
+                      {!isMobile && <td style={{ padding: '9px 14px', textAlign: 'right', color: 'var(--text-secondary)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
                         {h.ticker === 'CASH' ? '-' : nativePrice(h.ticker, h.avg_price_krw, usdKrw)}
+                      </td>}
+                      <td style={{ padding: isMobile ? '8px 8px' : '9px 14px', textAlign: 'right', color: 'var(--text-primary)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', fontSize: isMobile ? 13 : 14, transition: 'color 0.4s ease' }}>
+                        {isLoading ? <span className="skeleton" style={{ display: 'inline-block', width: 56, height: 13 }} /> : nativePrice(h.ticker, h.current_price_krw, usdKrw)}
                       </td>
-                      <td style={{ padding: '9px 14px', textAlign: 'right', color: 'var(--text-primary)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', transition: 'color 0.4s ease' }}>
-                        {isLoading ? <span className="skeleton" style={{ display: 'inline-block', width: 64, height: 14 }} /> : nativePrice(h.ticker, h.current_price_krw, usdKrw)}
-                      </td>
-                      <td style={{ padding: '9px 14px', textAlign: 'right', color: pctColor, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', transition: 'color 0.4s ease' }}>
+                      {!isMobile && <td style={{ padding: '9px 14px', textAlign: 'right', color: pctColor, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', transition: 'color 0.4s ease' }}>
                         {isLoading || krwChange === null ? '-' : nativeChange(h.ticker, krwChange, usdKrw)}
-                      </td>
-                      <td style={{ padding: '9px 14px', textAlign: 'right', color: pctColor, fontWeight: 600, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', transition: 'color 0.4s ease' }}>
+                      </td>}
+                      <td style={{ padding: isMobile ? '8px 8px' : '9px 14px', textAlign: 'right', color: pctColor, fontWeight: 600, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', fontSize: isMobile ? 13 : 14, transition: 'color 0.4s ease' }}>
                         {isLoading ? '-' : pct !== null ? fmtSign(pct) : '-'}
                       </td>
-                      <td style={{ padding: '9px 14px', textAlign: 'right', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', transition: 'color 0.4s ease' }}>
+                      <td style={{ padding: isMobile ? '8px 8px' : '9px 14px', textAlign: 'right', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', fontSize: isMobile ? 13 : 14, transition: 'color 0.4s ease' }}>
                         {fmtKrw(h.market_value_krw)}
                       </td>
-                      <td style={{ padding: '9px 14px', textAlign: 'right', color: holdingDailyPnl === null ? 'var(--text-secondary)' : holdingDailyPnl >= 0 ? 'var(--up)' : 'var(--down)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', transition: 'color 0.4s ease' }}>
+                      {!isMobile && <td style={{ padding: '9px 14px', textAlign: 'right', color: holdingDailyPnl === null ? 'var(--text-secondary)' : holdingDailyPnl >= 0 ? 'var(--up)' : 'var(--down)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', transition: 'color 0.4s ease' }}>
                         {isLoading || holdingDailyPnl === null ? '-'
                           : (holdingDailyPnl >= 0 ? '+' : '') + fmtKrw(Math.round(holdingDailyPnl))}
-                      </td>
-                      <td style={{ padding: '9px 14px', textAlign: 'right', color: 'var(--text-secondary)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                      </td>}
+                      {!isMobile && <td style={{ padding: '9px 14px', textAlign: 'right', color: 'var(--text-secondary)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
                         {weight.toFixed(1)}%
-                      </td>
+                      </td>}
                     </tr>
                     {isSelected && (
                       <tr key={`${h.ticker}-chart`}>
-                        <td colSpan={8} style={{ padding: 0 }}>
+                        <td colSpan={isMobile ? 4 : 10} style={{ padding: 0 }}>
                           <ChartPanel ticker={h.ticker} name={h.name} theme={theme} />
                         </td>
                       </tr>

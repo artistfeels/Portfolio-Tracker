@@ -138,7 +138,7 @@ function AuthenticatedApp({ theme, onToggleTheme }: { theme: Theme; onToggleThem
   return (
     <div style={{ display: 'flex', minHeight: '100vh', width: '100%', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontFamily: 'sans-serif' }}>
       <Sidebar current={page} onNavigate={setPage} theme={theme} onToggleTheme={onToggleTheme} isMobile={isMobile} />
-      <main style={{ flex: 1, overflow: 'auto', minWidth: 0, paddingBottom: isMobile ? 64 : 0 }}>
+      <main style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', minWidth: 0, paddingBottom: isMobile ? 64 : 0 }}>
         <div style={{ display: page === 'dashboard'    ? 'block' : 'none' }}><Dashboard portfolio={portfolio} theme={theme} isMobile={isMobile} /></div>
         <div style={{ display: page === 'transactions' ? 'block' : 'none' }}><Transactions isMobile={isMobile} /></div>
         <div style={{ display: page === 'analytics'   ? 'block' : 'none' }}><Analytics portfolio={portfolio} isMobile={isMobile} /></div>

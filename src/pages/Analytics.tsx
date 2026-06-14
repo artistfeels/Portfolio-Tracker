@@ -294,9 +294,9 @@ function BenchmarkChart({ series }: { series: SeriesDef[] }) {
 
   return (
     <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>벤치마크 비교 (시작=100, TWR — 현금유출입 제거)</div>
-        <div style={{ display: 'flex', gap: 16 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginBottom: 12 }}>
+        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>벤치마크 비교 (TWR 기준)</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
           {series.map(s => (
             <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--text-secondary)' }}>
               <span style={{ width: 18, height: 2, background: s.color, display: 'inline-block', borderRadius: 1 }} />
@@ -408,7 +408,7 @@ const detailTitle: React.CSSProperties = {
 const detailCode: React.CSSProperties = {
   display: 'block', fontFamily: 'ui-monospace, Consolas, monospace',
   fontSize: 12, color: 'var(--text-primary)', lineHeight: 1.8,
-  whiteSpace: 'pre', overflowX: 'auto', background: 'transparent',
+  whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: 'transparent',
 };
 const detailNote: React.CSSProperties = {
   marginTop: 10, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.6,
