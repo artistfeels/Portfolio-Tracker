@@ -591,9 +591,9 @@ export default function Analytics({ portfolio, isMobile = false }: { portfolio: 
 
 
   return (
-    <div style={{ padding: isMobile ? '16px 12px' : '24px 32px' }}>
+    <div style={{ padding: isMobile ? '8px 10px' : '24px 32px' }}>
       {/* 헤더 + 기간 필터 */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: isMobile ? 10 : 20, flexWrap: 'wrap', gap: isMobile ? 8 : 12 }}>
         <div style={{ fontSize: 18, fontWeight: 700 }}>애널리틱스</div>
         <div style={{ display: 'flex', gap: 4 }}>
           {PERIODS.map((p) => (
@@ -615,19 +615,19 @@ export default function Analytics({ portfolio, isMobile = false }: { portfolio: 
       </div>
 
       {/* 상단 요약 카드 + 확장 패널 */}
-      <div style={{ marginBottom: isMobile ? 14 : 24 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : 'repeat(3, 1fr)', gap: isMobile ? 8 : 12 }}>
+      <div style={{ marginBottom: isMobile ? 8 : 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : 'repeat(3, 1fr)', gap: isMobile ? 6 : 12 }}>
           {/* IRR 카드 */}
           <div
             onClick={() => setExpandedIrr(v => !v)}
             style={{
               background: 'var(--bg-card)',
               border: `1px solid ${expandedIrr ? 'var(--accent)' : 'var(--border-primary)'}`,
-              borderRadius: 8, padding: isMobile ? '10px 12px' : '16px 20px', cursor: 'pointer',
+              borderRadius: 8, padding: isMobile ? '7px 10px' : '16px 20px', cursor: 'pointer',
               transition: 'border-color 0.15s',
             }}
           >
-            <div style={{ fontSize: isMobile ? 10 : 12, color: 'var(--text-secondary)', marginBottom: isMobile ? 3 : 6 }}>
+            <div style={{ fontSize: isMobile ? 10 : 12, color: 'var(--text-secondary)', marginBottom: isMobile ? 2 : 6 }}>
               IRR
               {excludedTickers.size > 0 && (
                 <span style={{ marginLeft: 4, fontSize: 9, color: 'var(--text-muted)' }}>
@@ -646,11 +646,11 @@ export default function Analytics({ portfolio, isMobile = false }: { portfolio: 
             style={{
               background: 'var(--bg-card)',
               border: `1px solid ${expandedExpected ? 'var(--accent)' : 'var(--border-primary)'}`,
-              borderRadius: 8, padding: isMobile ? '10px 12px' : '16px 20px', cursor: 'pointer',
+              borderRadius: 8, padding: isMobile ? '7px 10px' : '16px 20px', cursor: 'pointer',
               transition: 'border-color 0.15s',
             }}
           >
-            <div style={{ fontSize: isMobile ? 10 : 12, color: 'var(--text-secondary)', marginBottom: isMobile ? 3 : 6 }}>{isMobile ? 'CAPM 기대' : '기대수익률 (CAPM)'}</div>
+            <div style={{ fontSize: isMobile ? 10 : 12, color: 'var(--text-secondary)', marginBottom: isMobile ? 2 : 6 }}>{isMobile ? 'CAPM 기대' : '기대수익률 (CAPM)'}</div>
             <div style={{ fontSize: isMobile ? 16 : 20, fontWeight: 700, color: expectedReturn === null ? 'var(--text-secondary)' : expectedReturn >= 0 ? 'var(--up)' : 'var(--down)' }}>
               {expectedReturn === null ? '-' : fmtPct(expectedReturn)}
             </div>
@@ -662,11 +662,11 @@ export default function Analytics({ portfolio, isMobile = false }: { portfolio: 
             style={{
               background: 'var(--bg-card)',
               border: `1px solid ${expandedMdd ? 'var(--accent)' : 'var(--border-primary)'}`,
-              borderRadius: 8, padding: isMobile ? '10px 12px' : '16px 20px', cursor: 'pointer',
+              borderRadius: 8, padding: isMobile ? '7px 10px' : '16px 20px', cursor: 'pointer',
               transition: 'border-color 0.15s',
             }}
           >
-            <div style={{ fontSize: isMobile ? 10 : 12, color: 'var(--text-secondary)', marginBottom: isMobile ? 3 : 6 }}>MDD</div>
+            <div style={{ fontSize: isMobile ? 10 : 12, color: 'var(--text-secondary)', marginBottom: isMobile ? 2 : 6 }}>MDD</div>
             <div style={{ fontSize: isMobile ? 16 : 20, fontWeight: 700, color: 'var(--down)' }}>
               {fmtPct(summary.mdd)}
             </div>
@@ -804,18 +804,18 @@ export default function Analytics({ portfolio, isMobile = false }: { portfolio: 
         )}
 
         {/* 추가 지표: CAGR · 알파 α · 연간 변동성 σ */}
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 12, marginTop: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : 'repeat(3, 1fr)', gap: isMobile ? 6 : 12, marginTop: isMobile ? 6 : 12 }}>
           {/* CAGR 카드 */}
           <div
             onClick={() => setExpandedCagr(v => !v)}
             style={{
               background: 'var(--bg-card)',
               border: `1px solid ${expandedCagr ? 'var(--accent)' : 'var(--border-primary)'}`,
-              borderRadius: 8, padding: '16px 20px', cursor: 'pointer',
+              borderRadius: 8, padding: isMobile ? '7px 10px' : '16px 20px', cursor: 'pointer',
               transition: 'border-color 0.15s',
             }}
           >
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: isMobile ? 2 : 6 }}>
               CAGR
               {history.length >= 2 && (
                 <span style={{ marginLeft: 5, fontSize: 10, color: 'var(--text-muted)' }}>
@@ -834,19 +834,19 @@ export default function Analytics({ portfolio, isMobile = false }: { portfolio: 
             style={{
               background: 'var(--bg-card)',
               border: `1px solid ${expandedAlpha ? 'var(--accent)' : 'var(--border-primary)'}`,
-              borderRadius: 8, padding: '16px 20px', cursor: 'pointer',
+              borderRadius: 8, padding: isMobile ? '7px 10px' : '16px 20px', cursor: 'pointer',
               transition: 'border-color 0.15s',
             }}
           >
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>알파 (α)</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: isMobile ? 2 : 6 }}>알파 (α)</div>
             <div style={{ fontSize: 20, fontWeight: 700, color: alpha === null ? 'var(--text-secondary)' : alpha >= 0 ? 'var(--up)' : 'var(--down)' }}>
               {alpha === null ? '-' : fmtPct(alpha)}
             </div>
           </div>
 
           {/* 연간 변동성 카드 */}
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: '16px 20px' }}>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>연간 변동성 (σ)</div>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: isMobile ? '7px 10px' : '16px 20px' }}>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: isMobile ? 2 : 6 }}>연간 변동성 (σ)</div>
             <div style={{ fontSize: 20, fontWeight: 700, color: sigma === null ? 'var(--text-secondary)' : 'var(--text-primary)' }}>
               {sigma === null ? '-' : (sigma * 100).toFixed(1) + '%'}
             </div>
@@ -915,7 +915,7 @@ export default function Analytics({ portfolio, isMobile = false }: { portfolio: 
       {/* 분석 시작 버튼 (idle일 때만) */}
       {chartStatus === 'idle' && (
         <div style={{
-          marginBottom: 24, padding: '28px 24px', background: 'var(--bg-card)',
+          marginBottom: isMobile ? 12 : 24, padding: isMobile ? '16px 16px' : '28px 24px', background: 'var(--bg-card)',
           border: '1px solid var(--border-primary)', borderRadius: 16,
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
           animation: 'fadeSlideIn 0.3s ease',
@@ -954,12 +954,12 @@ export default function Analytics({ portfolio, isMobile = false }: { portfolio: 
 
       {/* 리스크 지표 카드 (클릭 → 계산 과정) — 차트 로딩 시작 후에만 표시 */}
       {chartStatus === 'done' && (
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 10, letterSpacing: '0.04em' }}>
+      <div style={{ marginBottom: isMobile ? 12 : 24 }}>
+        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: isMobile ? 6 : 10, letterSpacing: '0.04em' }}>
           리스크 지표 &middot; S&amp;P500 벤치마크 &middot; SOFR 무위험금리 &middot;{' '}
           <span style={{ color: 'var(--text-muted)' }}>카드 클릭 시 계산 과정 표시</span>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: isMobile ? 10 : 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: isMobile ? 6 : 16 }}>
           {riskCards.map((c) => {
             const color = c.raw === null
               ? 'var(--text-secondary)'
@@ -973,11 +973,11 @@ export default function Analytics({ portfolio, isMobile = false }: { portfolio: 
                 style={{
                   background: 'var(--bg-card)',
                   border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border-primary)'}`,
-                  borderRadius: 8, padding: '16px 20px', cursor: 'pointer',
+                  borderRadius: 8, padding: isMobile ? '7px 10px' : '16px 20px', cursor: 'pointer',
                   transition: 'border-color 0.15s',
                 }}
               >
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>{c.label}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: isMobile ? 2 : 6 }}>{c.label}</div>
                 <div style={{ fontSize: 20, fontWeight: 700, color }}>{c.value}</div>
               </div>
             );
@@ -991,7 +991,7 @@ export default function Analytics({ portfolio, isMobile = false }: { portfolio: 
 
       {/* 벤치마크 비교 차트 */}
       {chartStatus !== 'idle' && (
-      <div style={{ marginBottom: 24 }}>
+      <div style={{ marginBottom: isMobile ? 12 : 24 }}>
         <>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
             <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>시작일</span>
@@ -1024,14 +1024,14 @@ export default function Analytics({ portfolio, isMobile = false }: { portfolio: 
 
       {/* 자산 총액 + 원금 추이 */}
       {chartStatus === 'done' && (
-      <div style={{ marginBottom: 24 }}>
+      <div style={{ marginBottom: isMobile ? 12 : 24 }}>
         <AssetChart valueData={valueData} principalData={principalData} isMobile={isMobile} />
       </div>
       )}
 
       {/* IRR 수익 기여도 차트 (접이식) */}
       {holdingIrrs.length > 0 && (
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 14, overflow: 'hidden', marginBottom: 24 }}>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 14, overflow: 'hidden', marginBottom: isMobile ? 12 : 24 }}>
           <div
             onClick={() => setExpandedIrrContrib(v => !v)}
             style={{ padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', borderBottom: expandedIrrContrib ? '1px solid var(--bg-tertiary)' : 'none' }}

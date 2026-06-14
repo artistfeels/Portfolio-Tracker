@@ -328,10 +328,10 @@ export default function Dashboard({ portfolio, theme = 'dark', isMobile = false 
   }
 
   return (
-    <div style={{ padding: isMobile ? '12px 8px' : '20px 8px', minWidth: 0 }}>
+    <div style={{ padding: isMobile ? '6px 8px' : '20px 8px', minWidth: 0 }}>
 
       {/* ── 헤더 ──────────────────────────────────────── */}
-      <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'flex-start', gap: isMobile ? 8 : 0, marginBottom: 16 }}>
+      <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'flex-start', gap: isMobile ? 6 : 0, marginBottom: isMobile ? 8 : 16 }}>
         <div>
           <div style={{ fontSize: isMobile ? 24 : 34, fontWeight: 700, letterSpacing: -1, lineHeight: 1 }}>
             {fmtKrw(summary.totalValue)}
@@ -368,7 +368,7 @@ export default function Dashboard({ portfolio, theme = 'dark', isMobile = false 
       </div>
 
       {/* ── 요약 카드 6개 ─────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(6, 1fr)', gap: isMobile ? 6 : 8, marginBottom: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(6, 1fr)', gap: isMobile ? 5 : 8, marginBottom: isMobile ? 7 : 12 }}>
         {[
           { label: '투자원금', value: fmtKrw(summary.totalPrincipal), color: 'var(--text-primary)' },
           {
@@ -394,8 +394,8 @@ export default function Dashboard({ portfolio, theme = 'dark', isMobile = false 
             color: portfolioIrr !== null ? (portfolioIrr >= 0 ? 'var(--up)' : 'var(--down)') : 'var(--text-secondary)',
           },
         ].map((c) => (
-          <div key={c.label} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 10, padding: isMobile ? '8px 10px' : '12px 16px' }}>
-            <div style={{ fontSize: isMobile ? 10 : 12, color: 'var(--text-secondary)', marginBottom: isMobile ? 3 : 5 }}>{c.label}</div>
+          <div key={c.label} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 10, padding: isMobile ? '5px 8px' : '12px 16px' }}>
+            <div style={{ fontSize: isMobile ? 10 : 12, color: 'var(--text-secondary)', marginBottom: isMobile ? 2 : 5 }}>{c.label}</div>
             <div style={{ fontSize: isMobile ? 14 : 19, fontWeight: 700, color: c.color }}>{c.value}</div>
             {'sub' in c && c.sub && (
               <div style={{ fontSize: isMobile ? 11 : 13, color: c.color, marginTop: 2 }}>{c.sub}</div>
@@ -447,13 +447,13 @@ export default function Dashboard({ portfolio, theme = 'dark', isMobile = false 
         }
       />
       {selectedMarket && (
-        <div style={{ marginBottom: 16, background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, overflow: 'hidden' }}>
+        <div style={{ marginBottom: isMobile ? 8 : 16, background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, overflow: 'hidden' }}>
           <ChartPanel ticker={selectedMarket.sym} name={selectedMarket.label} theme={theme} />
         </div>
       )}
 
       {/* ── 자산 구성 + 오늘의 움직임 ────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: (!isMobile && showMovers) ? '1fr 1fr' : '1fr', gap: 10, marginBottom: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: (!isMobile && showMovers) ? '1fr 1fr' : '1fr', gap: 10, marginBottom: isMobile ? 8 : 16 }}>
 
         {/* 자산 구성 */}
         {assetGroups.length > 0 && (
@@ -510,7 +510,7 @@ export default function Dashboard({ portfolio, theme = 'dark', isMobile = false 
       </div>
 
       {/* ── 인포그래픽 토글 ────────────────────────────── */}
-      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, marginTop: 4 }}>
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: isMobile ? 6 : 12, marginTop: isMobile ? 2 : 4 }}>
         <button
           onClick={() => setShowInfoViz(v => !v)}
           style={{
