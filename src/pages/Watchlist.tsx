@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { fetchPrice, fetchUsdKrw } from '../lib/prices';
 import type { WatchlistItem } from '../lib/types';
@@ -8,10 +8,12 @@ interface Props {
   isMobile?: boolean;
 }
 
-interface WatchlistWithPrice extends WatchlistItem {
+interface WatchlistRow extends WatchlistItem {
   current_price_krw: number | null;
   daily_change_pct: number | null;
   loading: boolean;
+  editingTarget: boolean;
+  editTargetVal: string;
 }
 
 const SETUP_SQL = `-- Supabase SQL Editor에서 실행
@@ -26,280 +28,354 @@ CREATE TABLE IF NOT EXISTS watchlist (
   UNIQUE(user_id, ticker)
 );
 ALTER TABLE watchlist ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can manage own watchlist" ON watchlist
-  FOR ALL USING (auth.uid() = user_id);`;
+CREATE POLICY "Users can manage own watchlist"
+  ON watchlist FOR ALL USING (auth.uid() = user_id);`;
 
-const UP = 'var(--up)';
+const UP   = 'var(--up)';
 const DOWN = 'var(--down)';
 
+async function resolveTickerName(ticker: string): Promise<{ name: string; region: '한국' | '해외' }> {
+  const sym = /^\d{6}$/.test(ticker)
+    ? `${ticker}.KS`
+    : /^\d{4}$/.test(ticker)
+    ? `${ticker}.HK`
+    : ticker.toUpperCase();
+  try {
+    const res = await fetch(`/api/yahoo/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=1d`);
+    const j = await res.json();
+    const meta = j?.chart?.result?.[0]?.meta;
+    const name = meta?.longName ?? meta?.shortName ?? '';
+    const region: '한국' | '해외' = /^\d{6}$/.test(ticker) ? '한국' : '해외';
+    return { name, region };
+  } catch {
+    return { name: '', region: /^\d{6}$/.test(ticker) ? '한국' : '해외' };
+  }
+}
+
 export default function Watchlist({ usdKrw, isMobile }: Props) {
-  const [items, setItems] = useState<WatchlistWithPrice[]>([]);
+  const [items, setItems]         = useState<WatchlistRow[]>([]);
   const [tableExists, setTableExists] = useState<boolean | null>(null);
-  const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState({ ticker: '', name: '', target_price_krw: '', region: '해외' as '한국' | '해외' });
-  const [formError, setFormError] = useState('');
-  const [copied, setCopied] = useState(false);
+  const [showAdd, setShowAdd]     = useState(false);
+  const [ticker, setTicker]       = useState('');
+  const [name,   setName]         = useState('');
+  const [region, setRegion]       = useState<'한국' | '해외'>('해외');
+  const [resolving, setResolving] = useState(false);
+  const [formErr, setFormErr]     = useState('');
+  const [copied, setCopied]       = useState(false);
+  const rateRef = useRef(usdKrw || 1380);
 
-  const rateRef = { current: usdKrw || 1380 };
+  useEffect(() => { rateRef.current = usdKrw || 1380; }, [usdKrw]);
 
-  const loadItems = useCallback(async () => {
+  // ── DB 조회 ──────────────────────────────────────────────
+  const loadItems = useCallback(async (silent = false) => {
     const { data, error } = await supabase
       .from('watchlist')
       .select('*')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: true });
 
     if (error) {
-      if (error.code === '42P01' || error.message.includes('does not exist') || error.message.includes('PGRST116') || error.code === 'PGRST116') {
-        setTableExists(false);
-      } else {
-        setTableExists(false);
-      }
+      setTableExists(false);
       return;
     }
-
     setTableExists(true);
-    const withPrices: WatchlistWithPrice[] = (data ?? []).map(d => ({
+
+    const rows: WatchlistRow[] = (data ?? []).map(d => ({
       ...d,
       target_price_krw: d.target_price_krw ? Number(d.target_price_krw) : null,
       current_price_krw: null,
       daily_change_pct: null,
       loading: true,
+      editingTarget: false,
+      editTargetVal: '',
     }));
-    setItems(withPrices);
+    if (!silent) setItems(rows);
 
-    // fetch prices progressively
-    const rate = usdKrw > 0 ? usdKrw : await fetchUsdKrw();
+    // 시세 순차 조회
+    const rate = rateRef.current > 0 ? rateRef.current : await fetchUsdKrw();
     rateRef.current = rate;
-
-    for (const item of withPrices) {
-      if (item.ticker === 'CASH') continue;
-      fetchPrice(item.ticker, rate).then(p => {
+    for (const row of rows) {
+      fetchPrice(row.ticker, rate).then(p => {
         setItems(prev => prev.map(x =>
-          x.ticker === item.ticker
+          x.id === row.id
             ? { ...x, current_price_krw: p.price_krw || null, daily_change_pct: p.daily_change_pct, loading: false }
             : x
         ));
       });
-      await new Promise(r => setTimeout(r, 150));
+      await new Promise(r => setTimeout(r, 180));
     }
-  }, [usdKrw]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => { loadItems(); }, [loadItems]);
 
+  // ── 티커 입력 후 이름 자동조회 ─────────────────────────────
+  async function handleTickerBlur() {
+    const t = ticker.trim().toUpperCase();
+    if (!t || resolving) return;
+    setResolving(true);
+    setName('...');
+    const { name: resolved, region: detectedRegion } = await resolveTickerName(t);
+    setName(resolved || '');
+    setRegion(detectedRegion);
+    setResolving(false);
+  }
+
+  // ── 종목 추가 ────────────────────────────────────────────
   async function addItem() {
-    if (!form.ticker.trim()) { setFormError('티커를 입력하세요.'); return; }
-    if (!form.name.trim()) { setFormError('종목명을 입력하세요.'); return; }
-    setFormError('');
+    const t = ticker.trim().toUpperCase();
+    if (!t) { setFormErr('티커를 입력하세요.'); return; }
+    setFormErr('');
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
     const { error } = await supabase.from('watchlist').insert({
       user_id: user.id,
-      ticker: form.ticker.trim().toUpperCase(),
-      name: form.name.trim(),
-      target_price_krw: form.target_price_krw ? Number(form.target_price_krw) : null,
-      region: form.region,
+      ticker: t,
+      name: name.trim() || t,
+      target_price_krw: null,
+      region,
     });
 
     if (error) {
-      if (error.code === '23505') { setFormError('이미 관심목록에 있는 종목입니다.'); return; }
-      setFormError(error.message);
+      if (error.code === '23505') { setFormErr('이미 관심목록에 있는 종목입니다.'); return; }
+      setFormErr(error.message);
       return;
     }
 
-    setForm({ ticker: '', name: '', target_price_krw: '', region: '해외' });
-    setAdding(false);
+    setTicker(''); setName(''); setRegion('해외');
+    setShowAdd(false);
     loadItems();
   }
 
+  // ── 종목 삭제 ────────────────────────────────────────────
   async function removeItem(id: string) {
     await supabase.from('watchlist').delete().eq('id', id);
     setItems(prev => prev.filter(x => x.id !== id));
   }
 
-  const pd = isMobile ? '16px 12px' : '24px 32px';
+  // ── 목표가 인라인 수정 ─────────────────────────────────────
+  function startEditTarget(id: string, current: number | null) {
+    setItems(prev => prev.map(x => x.id === id
+      ? { ...x, editingTarget: true, editTargetVal: current ? String(current) : '' }
+      : { ...x, editingTarget: false }
+    ));
+  }
 
-  const thStyle: React.CSSProperties = {
+  async function saveTarget(id: string) {
+    const item = items.find(x => x.id === id);
+    if (!item) return;
+    const val = item.editTargetVal.trim() ? Number(item.editTargetVal) : null;
+    await supabase.from('watchlist').update({ target_price_krw: val }).eq('id', id);
+    setItems(prev => prev.map(x => x.id === id
+      ? { ...x, target_price_krw: val, editingTarget: false }
+      : x
+    ));
+  }
+
+  const pd = isMobile ? '16px 12px' : '24px 28px';
+
+  const thSt: React.CSSProperties = {
     padding: isMobile ? '8px 8px' : '9px 14px',
     textAlign: 'right', fontWeight: 600, fontSize: 11,
-    color: 'var(--text-secondary)', whiteSpace: 'nowrap',
-    borderBottom: '1px solid var(--border-primary)',
+    color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-primary)', whiteSpace: 'nowrap',
   };
-  const tdStyle: React.CSSProperties = {
+  const tdSt: React.CSSProperties = {
     padding: isMobile ? '8px 8px' : '9px 14px',
     textAlign: 'right', fontSize: isMobile ? 12 : 13,
     borderBottom: '1px solid var(--border-primary)',
-    whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums',
+    fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', color: 'var(--text-primary)',
   };
 
   return (
-    <div style={{ padding: pd, maxWidth: 900 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
+    <div style={{ padding: pd, color: 'var(--text-primary)' }}>
+      {/* 헤더 */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 10 }}>
         <div>
-          <h2 style={{ fontSize: isMobile ? 18 : 22, fontWeight: 700, margin: '0 0 4px' }}>관심종목</h2>
-          <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0 }}>목표가 설정 및 현재가 모니터링</p>
+          <h2 style={{ fontSize: isMobile ? 18 : 22, fontWeight: 700, margin: '0 0 4px', color: 'var(--text-primary)' }}>관심종목</h2>
+          <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0 }}>실시간 시세 모니터링 · 목표가 알림</p>
         </div>
         {tableExists && (
-          <button onClick={() => setAdding(v => !v)} style={{
-            padding: '8px 16px', borderRadius: 8, fontSize: 12, fontWeight: 600,
-            background: adding ? 'var(--bg-tertiary)' : 'var(--accent)',
-            border: '1px solid var(--border-primary)', cursor: 'pointer',
-            color: adding ? 'var(--text-secondary)' : '#fff',
-          }}>
-            {adding ? '취소' : '+ 종목 추가'}
+          <button onClick={() => { setShowAdd(v => !v); setFormErr(''); setTicker(''); setName(''); }}
+            style={{
+              padding: '8px 18px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              background: showAdd ? 'var(--bg-tertiary)' : 'var(--accent)',
+              border: '1px solid var(--border-primary)',
+              color: showAdd ? 'var(--text-secondary)' : '#fff',
+            }}>
+            {showAdd ? '취소' : '+ 종목 추가'}
           </button>
         )}
       </div>
 
-      {/* 테이블 없을 때 설정 안내 */}
+      {/* ── 테이블 없음: SQL 안내 ───────────────────────── */}
       {tableExists === false && (
-        <div style={{
-          background: 'var(--bg-card)', border: '1px solid var(--border-primary)',
-          borderRadius: 10, padding: 20,
-        }}>
-          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>초기 설정 필요</div>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 10, padding: 20 }}>
+          <div style={{ fontWeight: 600, marginBottom: 8, color: 'var(--text-primary)' }}>초기 설정 필요</div>
           <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>
-            Supabase Dashboard → SQL Editor에서 아래 SQL을 실행해주세요.
+            Supabase Dashboard → SQL Editor에서 아래 SQL을 실행하세요.
           </div>
           <div style={{ position: 'relative' }}>
             <pre style={{
               background: 'var(--bg-primary)', border: '1px solid var(--border-primary)',
-              borderRadius: 8, padding: '14px 16px', fontSize: 11,
-              fontFamily: 'monospace', color: 'var(--text-secondary)',
-              overflowX: 'auto', margin: 0, whiteSpace: 'pre-wrap',
-            }}>
-              {SETUP_SQL}
-            </pre>
+              borderRadius: 8, padding: '14px 16px', fontSize: 11, fontFamily: 'monospace',
+              color: 'var(--text-secondary)', overflowX: 'auto', margin: 0, whiteSpace: 'pre-wrap',
+            }}>{SETUP_SQL}</pre>
             <button onClick={() => { navigator.clipboard.writeText(SETUP_SQL); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
               style={{
-                position: 'absolute', top: 8, right: 8,
-                padding: '4px 10px', fontSize: 11, borderRadius: 5,
+                position: 'absolute', top: 8, right: 8, padding: '4px 10px', fontSize: 11, borderRadius: 5,
                 background: copied ? '#22c55e' : 'var(--bg-tertiary)',
                 border: '1px solid var(--border-primary)', cursor: 'pointer',
                 color: copied ? '#fff' : 'var(--text-secondary)',
               }}>
-              {copied ? '복사됨!' : '복사'}
+              {copied ? '복사됨' : '복사'}
             </button>
           </div>
-          <button onClick={loadItems} style={{
-            marginTop: 14, padding: '8px 16px', borderRadius: 8, fontSize: 12,
-            background: 'var(--accent)', border: 'none', color: '#fff', cursor: 'pointer',
-          }}>
+          <button onClick={() => loadItems()} style={{ marginTop: 14, padding: '8px 16px', borderRadius: 8, fontSize: 12, background: 'var(--accent)', border: 'none', color: '#fff', cursor: 'pointer' }}>
             설정 완료 후 새로고침
           </button>
         </div>
       )}
 
-      {/* 종목 추가 폼 */}
-      {adding && tableExists && (
+      {/* ── 추가 폼 ───────────────────────────────────── */}
+      {showAdd && tableExists && (
         <div style={{
-          background: 'var(--bg-card)', border: '1px solid var(--accent)',
-          borderRadius: 10, padding: '16px', marginBottom: 16,
-          display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr auto auto', gap: 10,
-          alignItems: 'end',
+          background: 'var(--bg-card)', border: '1px solid var(--accent)', borderRadius: 10,
+          padding: '16px 20px', marginBottom: 20,
         }}>
-          <div>
-            <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginBottom: 4 }}>티커 *</div>
-            <input value={form.ticker} onChange={e => setForm(f => ({ ...f, ticker: e.target.value }))}
-              placeholder="AAPL / 000660" style={inputStyle} />
+          <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 14, color: 'var(--text-primary)' }}>종목 추가</div>
+          <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 12, alignItems: 'flex-end' }}>
+            <div style={{ flex: '0 0 auto' }}>
+              <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginBottom: 5 }}>티커 *</div>
+              <input
+                value={ticker}
+                onChange={e => setTicker(e.target.value)}
+                onBlur={handleTickerBlur}
+                onKeyDown={e => e.key === 'Enter' && handleTickerBlur()}
+                placeholder="AAPL / 005930"
+                style={{ ...inputSt, width: isMobile ? '100%' : 130 }}
+              />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginBottom: 5 }}>
+                종목명 {resolving && <span style={{ color: 'var(--text-muted)' }}>조회 중...</span>}
+              </div>
+              <input
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="자동 입력"
+                style={{ ...inputSt, width: '100%' }}
+              />
+            </div>
+            <div style={{ flex: '0 0 auto' }}>
+              <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginBottom: 5 }}>구분</div>
+              <select value={region} onChange={e => setRegion(e.target.value as '한국' | '해외')} style={{ ...inputSt, width: 80 }}>
+                <option value="해외">해외</option>
+                <option value="한국">한국</option>
+              </select>
+            </div>
+            <button onClick={addItem} disabled={resolving} style={{
+              padding: '9px 20px', borderRadius: 8, fontSize: 13, fontWeight: 600, flexShrink: 0,
+              background: 'var(--accent)', border: 'none', color: '#fff', cursor: resolving ? 'default' : 'pointer',
+              opacity: resolving ? 0.6 : 1,
+            }}>추가</button>
           </div>
-          <div>
-            <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginBottom: 4 }}>종목명 *</div>
-            <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              placeholder="Apple Inc." style={inputStyle} />
-          </div>
-          <div>
-            <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginBottom: 4 }}>목표가 (원, 선택)</div>
-            <input type="number" value={form.target_price_krw} onChange={e => setForm(f => ({ ...f, target_price_krw: e.target.value }))}
-              placeholder="200000" style={inputStyle} />
-          </div>
-          <div>
-            <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginBottom: 4 }}>구분</div>
-            <select value={form.region} onChange={e => setForm(f => ({ ...f, region: e.target.value as '한국' | '해외' }))} style={inputStyle}>
-              <option value="해외">해외</option>
-              <option value="한국">한국</option>
-            </select>
-          </div>
-          <button onClick={addItem} style={{
-            padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 600,
-            background: 'var(--accent)', border: 'none', color: '#fff', cursor: 'pointer',
-            alignSelf: 'end',
-          }}>
-            추가
-          </button>
-          {formError && <div style={{ fontSize: 11, color: UP, gridColumn: '1/-1' }}>{formError}</div>}
+          {formErr && <div style={{ fontSize: 11, color: UP, marginTop: 8 }}>{formErr}</div>}
         </div>
       )}
 
-      {/* 관심종목 테이블 */}
-      {tableExists && (
-        items.length === 0 ? (
-          <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-            관심 종목을 추가하세요.
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={{ ...thStyle, textAlign: 'left' }}>종목</th>
-                  <th style={thStyle}>현재가</th>
-                  <th style={thStyle}>목표가</th>
-                  <th style={thStyle}>목표까지</th>
-                  {!isMobile && <th style={thStyle}>전일대비</th>}
-                  <th style={{ ...thStyle, textAlign: 'center' }}>삭제</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map(item => {
-                  const cur = item.current_price_krw;
-                  const tgt = item.target_price_krw;
-                  const gapPct = cur && tgt ? ((tgt - cur) / cur * 100) : null;
-                  const chg = item.daily_change_pct;
-                  return (
-                    <tr key={item.id}>
-                      <td style={{ ...tdStyle, textAlign: 'left' }}>
-                        <div style={{ fontWeight: 600 }}>{item.name}</div>
-                        <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{item.ticker} · {item.region}</div>
-                      </td>
-                      <td style={tdStyle}>
-                        {item.loading
-                          ? <span className="skeleton" style={{ display: 'inline-block', width: 64, height: 13 }} />
-                          : cur ? '₩' + cur.toLocaleString('ko-KR') : '-'}
-                      </td>
-                      <td style={{ ...tdStyle, color: 'var(--text-secondary)' }}>
-                        {tgt ? '₩' + tgt.toLocaleString('ko-KR') : '-'}
-                      </td>
-                      <td style={{ ...tdStyle, color: gapPct == null ? 'var(--text-muted)' : gapPct >= 0 ? UP : DOWN, fontWeight: gapPct != null ? 600 : 400 }}>
-                        {gapPct == null ? '-' : (gapPct >= 0 ? '+' : '') + gapPct.toFixed(2) + '%'}
-                      </td>
-                      {!isMobile && (
-                        <td style={{ ...tdStyle, color: chg == null ? 'var(--text-muted)' : chg >= 0 ? UP : DOWN }}>
-                          {chg == null ? '-' : (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%'}
-                        </td>
+      {/* ── 리스트 ───────────────────────────────────── */}
+      {tableExists && items.length === 0 && !showAdd && (
+        <div style={{ textAlign: 'center', padding: '80px 0', color: 'var(--text-muted)' }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>⭐</div>
+          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 6, color: 'var(--text-secondary)' }}>관심종목이 없습니다</div>
+          <div style={{ fontSize: 12, marginBottom: 20 }}>티커를 추가하면 실시간 시세와 목표가를 모니터링할 수 있습니다</div>
+          <button onClick={() => setShowAdd(true)} style={{
+            padding: '10px 24px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+            background: 'var(--accent)', border: 'none', color: '#fff', cursor: 'pointer',
+          }}>+ 첫 종목 추가하기</button>
+        </div>
+      )}
+
+      {tableExists && items.length > 0 && (
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={{ ...thSt, textAlign: 'left' }}>종목</th>
+                <th style={thSt}>현재가</th>
+                <th style={thSt}>전일대비</th>
+                <th style={thSt}>목표가</th>
+                <th style={thSt}>목표까지</th>
+                <th style={{ ...thSt, textAlign: 'center' }}>삭제</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map(item => {
+                const cur = item.current_price_krw;
+                const tgt = item.target_price_krw;
+                const gap = cur && tgt ? ((tgt - cur) / cur * 100) : null;
+                const chg = item.daily_change_pct;
+                const reached = gap != null && Math.abs(gap) < 0.5;
+                return (
+                  <tr key={item.id} style={{ background: reached ? 'rgba(207,34,46,0.05)' : undefined }}>
+                    <td style={{ ...tdSt, textAlign: 'left' }}>
+                      <div style={{ fontWeight: 600 }}>{item.name || item.ticker}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{item.ticker} · {item.region}</div>
+                    </td>
+                    <td style={tdSt}>
+                      {item.loading
+                        ? <span className="skeleton" style={{ display: 'inline-block', width: 70, height: 13 }} />
+                        : cur ? '₩' + cur.toLocaleString('ko-KR') : '–'}
+                    </td>
+                    <td style={{ ...tdSt, color: chg == null ? 'var(--text-muted)' : chg >= 0 ? UP : DOWN, fontWeight: chg != null ? 600 : 400 }}>
+                      {chg == null ? '–' : (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%'}
+                    </td>
+                    <td style={tdSt}>
+                      {item.editingTarget ? (
+                        <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', alignItems: 'center' }}>
+                          <input
+                            type="number"
+                            autoFocus
+                            value={item.editTargetVal}
+                            onChange={e => setItems(prev => prev.map(x => x.id === item.id ? { ...x, editTargetVal: e.target.value } : x))}
+                            onKeyDown={e => { if (e.key === 'Enter') saveTarget(item.id); if (e.key === 'Escape') setItems(prev => prev.map(x => x.id === item.id ? { ...x, editingTarget: false } : x)); }}
+                            style={{ ...inputSt, width: 90, padding: '4px 8px', fontSize: 12 }}
+                            placeholder="목표가(원)"
+                          />
+                          <button onClick={() => saveTarget(item.id)} style={{ fontSize: 11, padding: '4px 8px', borderRadius: 5, background: 'var(--accent)', border: 'none', color: '#fff', cursor: 'pointer' }}>저장</button>
+                        </div>
+                      ) : (
+                        <button onClick={() => startEditTarget(item.id, item.target_price_krw)}
+                          style={{ background: 'none', border: `1px dashed ${tgt ? 'var(--border-primary)' : 'var(--text-muted)'}`, borderRadius: 5, padding: '3px 8px', cursor: 'pointer', color: tgt ? 'var(--text-primary)' : 'var(--text-muted)', fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>
+                          {tgt ? '₩' + tgt.toLocaleString('ko-KR') : '+ 설정'}
+                        </button>
                       )}
-                      <td style={{ ...tdStyle, textAlign: 'center' }}>
-                        <button onClick={() => removeItem(item.id)} style={{
-                          background: 'none', border: 'none', cursor: 'pointer',
-                          color: 'var(--text-muted)', fontSize: 14, padding: '2px 6px',
-                        }}>✕</button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )
+                    </td>
+                    <td style={{
+                      ...tdSt,
+                      color: gap == null ? 'var(--text-muted)' : gap >= 0 ? UP : DOWN,
+                      fontWeight: gap != null ? 700 : 400,
+                    }}>
+                      {gap == null ? '–'
+                        : reached ? '🎯 도달!'
+                        : (gap >= 0 ? '+' : '') + gap.toFixed(2) + '%'}
+                    </td>
+                    <td style={{ ...tdSt, textAlign: 'center' }}>
+                      <button onClick={() => removeItem(item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 14, padding: '2px 6px' }}>✕</button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
 }
 
-const inputStyle: React.CSSProperties = {
-  width: '100%', background: 'var(--bg-primary)',
-  border: '1px solid var(--border-primary)', borderRadius: 6,
-  padding: '8px 12px', color: 'var(--text-primary)', fontSize: 13,
-  outline: 'none', boxSizing: 'border-box',
+const inputSt: React.CSSProperties = {
+  background: 'var(--bg-primary)', border: '1px solid var(--border-primary)',
+  borderRadius: 6, padding: '8px 12px', color: 'var(--text-primary)',
+  fontSize: 13, outline: 'none', boxSizing: 'border-box',
 };

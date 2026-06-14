@@ -24,13 +24,16 @@ export interface AnalyticsSummary {
   beta: number | null;
 }
 
-function calcMdd(history: HistoryPoint[]): number | null {
-  if (history.length < 2) return null;
-  let peak = history[0].value_krw;
+// MDD는 현금유입·유출을 제거한 TWR 기준으로 계산해야 한다.
+// 순수 포트폴리오 가치(value_krw)로 계산하면 신규 납입금이
+// 피크를 인위적으로 높여 MDD가 실제보다 훨씬 크게 나온다.
+function calcMddFromTwr(twrPts: { date: string; twr: number }[]): number | null {
+  if (twrPts.length < 2) return null;
+  let peak = twrPts[0].twr;
   let mdd = 0;
-  for (const p of history) {
-    if (p.value_krw > peak) peak = p.value_krw;
-    const drawdown = peak > 0 ? (p.value_krw - peak) / peak : 0;
+  for (const p of twrPts) {
+    if (p.twr > peak) peak = p.twr;
+    const drawdown = peak > 0 ? (p.twr - peak) / peak : 0;
     if (drawdown < mdd) mdd = drawdown;
   }
   return mdd;
@@ -183,7 +186,7 @@ export function useAnalytics(
 
       setSummary(prev => ({
         ...prev,
-        mdd: calcMdd(hist),
+        mdd: calcMddFromTwr(twrPts),
         sharpe: ratios.sharpe,
         sortino: ratios.sortino,
         treynor: ratios.treynor,

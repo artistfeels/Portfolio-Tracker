@@ -31,6 +31,9 @@
   --glass-bg: rgba(22, 27, 34, 0.70);
   --glass-border: rgba(255, 255, 255, 0.08);
   --glass-shadow: 0 8px 40px rgba(0,0,0,0.45), 0 0 0 1px rgba(167,139,250,0.22);
+  --text-h: #e6edf3;
+  --text: #8b949e;
+  --bg: #0d1117;
 }
 
 :root {

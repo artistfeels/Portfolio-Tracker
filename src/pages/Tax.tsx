@@ -118,9 +118,9 @@ export default function Tax({ transactions, holdings, isMobile }: Props) {
   };
 
   return (
-    <div style={{ padding: pd, maxWidth: 900 }}>
+    <div style={{ padding: pd, color: 'var(--text-primary)' }}>
       <div style={{ marginBottom: 24 }}>
-        <h2 style={{ fontSize: isMobile ? 18 : 22, fontWeight: 700, margin: '0 0 4px' }}>세금 분석</h2>
+        <h2 style={{ fontSize: isMobile ? 18 : 22, fontWeight: 700, margin: '0 0 4px', color: 'var(--text-primary)' }}>세금 분석</h2>
         <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0 }}>
           해외 주식 양도소득세 (연간 실현손익 - 250만원 공제 × 22%)
         </p>
