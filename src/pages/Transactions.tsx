@@ -392,7 +392,7 @@ export default function Transactions({ isMobile = false }: { isMobile?: boolean 
           onKeyDown={handleModalKeyDown}
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 10, padding: 24, width: 600, maxHeight: '80vh', overflow: 'auto' }}>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 10, padding: isMobile ? 16 : 24, width: isMobile ? 'calc(100vw - 24px)' : 600, maxWidth: 600, maxHeight: '80vh', overflow: 'auto' }}>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>업로드 미리보기 — {preview.length}건</div>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
@@ -434,9 +434,63 @@ export default function Transactions({ isMobile = false }: { isMobile?: boolean 
         </div>
       )}
 
-      {/* 거래내역 테이블 */}
+      {/* 거래내역 — 모바일은 카드, 데스크탑은 테이블 */}
       {loading ? (
         <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>로딩 중...</div>
+      ) : isMobile ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {rows.map(r => {
+            const isEditing = editingId === r.id;
+            const isDeleteConfirm = deleteConfirm === r.id;
+            if (isEditing) {
+              return (
+                <div key={r.id}>
+                  <TxForm title="수정" form={form} saving={saving} onChange={updateForm} onSave={handleSave} onCancel={cancelEdit} />
+                </div>
+              );
+            }
+            return (
+              <div key={r.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 10, padding: '12px 14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 10 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: ACTION_COLOR[r.action], flexShrink: 0 }}>{ACTION_LABEL[r.action]}</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 1 }}>{r.ticker} · {r.trade_date} · {r.region}</div>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>수량</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{r.shares.toLocaleString()}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>단가(KRW)</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fmt(r.price_krw)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>섹터</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.sector ?? '-'}</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+                  {isDeleteConfirm ? (
+                    <>
+                      <button onClick={() => handleDelete(r.id)} style={{ background: 'var(--up)', border: 'none', color: '#fff', padding: '7px 14px', borderRadius: 6, fontSize: 12, cursor: 'pointer', fontWeight: 600, minHeight: 36 }}>삭제 확인</button>
+                      <button onClick={() => setDeleteConfirm(null)} style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-primary)', color: 'var(--text-secondary)', padding: '7px 12px', borderRadius: 6, fontSize: 12, cursor: 'pointer', minHeight: 36 }}>취소</button>
+                    </>
+                  ) : (
+                    <>
+                      <button onClick={() => startEditing(r)} style={{ background: 'none', border: '1px solid var(--border-primary)', color: 'var(--text-secondary)', padding: '7px 16px', borderRadius: 6, fontSize: 12, cursor: 'pointer', minHeight: 36 }}>수정</button>
+                      <button onClick={() => setDeleteConfirm(r.id)} style={{ background: 'none', border: '1px solid var(--border-primary)', color: 'var(--up)', padding: '7px 16px', borderRadius: 6, fontSize: 12, cursor: 'pointer', minHeight: 36 }}>삭제</button>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       ) : (
         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, overflowX: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
           <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse', fontSize: 13 }}>

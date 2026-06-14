@@ -229,15 +229,17 @@ function chartOptions(height: number) {
 }
 
 // ── 자산 총액 + 원금 차트 ───────────────────────────────────────────
-function AssetChart({ valueData, principalData }: {
+function AssetChart({ valueData, principalData, isMobile = false }: {
   valueData: { date: string; value: number }[];
   principalData: { date: string; value: number }[];
+  isMobile?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const chartH = isMobile ? 200 : 220;
   useEffect(() => {
     if (!ref.current || valueData.length === 0) return;
     const el = ref.current;
-    const chart = createChart(el, { width: el.clientWidth || 600, ...chartOptions(220) });
+    const chart = createChart(el, { width: el.clientWidth || 600, ...chartOptions(chartH) });
     const toTime = (d: { date: string; value: number }) => ({ time: d.date as `${number}-${number}-${number}`, value: d.value });
     const valueSeries = chart.addSeries(LineSeries, { color: cssVar('--accent', '#58a6ff'), lineWidth: 2, title: '' });
     valueSeries.setData(dedupeSorted(valueData).map(toTime));
@@ -248,11 +250,11 @@ function AssetChart({ valueData, principalData }: {
     chart.timeScale().fitContent();
     const ro = observeWidth(el, (w) => chart.applyOptions({ width: w }));
     return () => { ro.disconnect(); chart.remove(); };
-  }, [valueData, principalData]);
+  }, [valueData, principalData, chartH]);
 
   return (
     <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 8, flexWrap: 'wrap' }}>
         <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>자산 총액 추이 (KRW)</div>
         <div style={{ display: 'flex', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--text-secondary)' }}>
@@ -264,8 +266,8 @@ function AssetChart({ valueData, principalData }: {
         </div>
       </div>
       {valueData.length === 0
-        ? <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', fontSize: 12 }}>데이터 없음</div>
-        : <div ref={ref} style={{ height: 220, width: '100%' }} />}
+        ? <div style={{ height: chartH, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', fontSize: 12 }}>데이터 없음</div>
+        : <div ref={ref} style={{ height: chartH, width: '100%' }} />}
     </div>
   );
 }
@@ -273,14 +275,15 @@ function AssetChart({ valueData, principalData }: {
 // ── 벤치마크 비교 차트 (멀티라인) ──────────────────────────────────
 type SeriesDef = { data: { date: string; value: number }[]; color: string; label: string };
 
-function BenchmarkChart({ series }: { series: SeriesDef[] }) {
+function BenchmarkChart({ series, isMobile = false }: { series: SeriesDef[]; isMobile?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const hasData = series.some(s => s.data.length > 0);
+  const chartH = isMobile ? 220 : 280;
 
   useEffect(() => {
     if (!ref.current || !hasData) return;
     const el = ref.current;
-    const chart = createChart(el, { width: el.clientWidth || 600, ...chartOptions(280) });
+    const chart = createChart(el, { width: el.clientWidth || 600, ...chartOptions(chartH) });
     for (const s of series) {
       if (s.data.length === 0) continue;
       // title: '' — price axis label 제거 (legend는 상단에 별도 표시)
@@ -290,7 +293,7 @@ function BenchmarkChart({ series }: { series: SeriesDef[] }) {
     chart.timeScale().fitContent();
     const ro = observeWidth(el, (w) => chart.applyOptions({ width: w }));
     return () => { ro.disconnect(); chart.remove(); };
-  }, [series, hasData]);
+  }, [series, hasData, chartH]);
 
   return (
     <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: 16 }}>
@@ -306,8 +309,8 @@ function BenchmarkChart({ series }: { series: SeriesDef[] }) {
         </div>
       </div>
       {!hasData
-        ? <div style={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', fontSize: 12 }}>데이터 없음</div>
-        : <div ref={ref} style={{ height: 280, width: '100%' }} />}
+        ? <div style={{ height: chartH, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', fontSize: 12 }}>데이터 없음</div>
+        : <div ref={ref} style={{ height: chartH, width: '100%' }} />}
     </div>
   );
 }
@@ -956,7 +959,7 @@ export default function Analytics({ portfolio, isMobile = false }: { portfolio: 
           리스크 지표 &middot; S&amp;P500 벤치마크 &middot; SOFR 무위험금리 &middot;{' '}
           <span style={{ color: 'var(--text-muted)' }}>카드 클릭 시 계산 과정 표시</span>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: isMobile ? 10 : 16 }}>
           {riskCards.map((c) => {
             const color = c.raw === null
               ? 'var(--text-secondary)'
@@ -1014,7 +1017,7 @@ export default function Analytics({ portfolio, isMobile = false }: { portfolio: 
               >처음으로</button>
             )}
           </div>
-          <BenchmarkChart series={benchmarkSeriesData} />
+          <BenchmarkChart series={benchmarkSeriesData} isMobile={isMobile} />
         </>
       </div>
       )}
@@ -1022,7 +1025,7 @@ export default function Analytics({ portfolio, isMobile = false }: { portfolio: 
       {/* 자산 총액 + 원금 추이 */}
       {chartStatus === 'done' && (
       <div style={{ marginBottom: 24 }}>
-        <AssetChart valueData={valueData} principalData={principalData} />
+        <AssetChart valueData={valueData} principalData={principalData} isMobile={isMobile} />
       </div>
       )}
 
@@ -1054,13 +1057,13 @@ export default function Analytics({ portfolio, isMobile = false }: { portfolio: 
                       const barW = Math.abs(c) / maxAbs * 100;
                       const label = /^\d{6}$/.test(h.ticker) ? h.name : h.ticker;
                       return (
-                        <div key={h.ticker} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div style={{ width: 92, fontSize: 12, fontWeight: 500, color: 'var(--text-primary)', textAlign: 'right', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</div>
-                          <div style={{ width: 36, fontSize: 10, color: 'var(--text-muted)', textAlign: 'right', flexShrink: 0 }}>{(h.weight * 100).toFixed(0)}%</div>
+                        <div key={h.ticker} style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 10 }}>
+                          <div style={{ width: isMobile ? 64 : 92, fontSize: isMobile ? 11 : 12, fontWeight: 500, color: 'var(--text-primary)', textAlign: 'right', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</div>
+                          <div style={{ width: 30, fontSize: 10, color: 'var(--text-muted)', textAlign: 'right', flexShrink: 0 }}>{(h.weight * 100).toFixed(0)}%</div>
                           <div style={{ flex: 1, height: 22, background: 'var(--bg-tertiary)', borderRadius: 6, overflow: 'hidden' }}>
                             <div style={{ width: `${barW}%`, height: '100%', background: color, borderRadius: 6, opacity: 0.82, transition: 'width 0.6s ease', minWidth: 2 }} />
                           </div>
-                          <div style={{ width: 60, fontSize: 12, color, textAlign: 'right', flexShrink: 0, fontWeight: 700 }}>
+                          <div style={{ width: isMobile ? 54 : 60, fontSize: isMobile ? 11 : 12, color, textAlign: 'right', flexShrink: 0, fontWeight: 700 }}>
                             {c >= 0 ? '+' : ''}{(c * 100).toFixed(2)}%p
                           </div>
                         </div>
@@ -1080,9 +1083,41 @@ export default function Analytics({ portfolio, isMobile = false }: { portfolio: 
         </div>
       )}
 
-      {/* 종목별 IRR 테이블 */}
+      {/* 종목별 IRR — 모바일은 카드, 데스크탑은 테이블 */}
       <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 14, overflow: 'hidden' }}>
         <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--bg-tertiary)', fontSize: 13, fontWeight: 600 }}>종목별 IRR</div>
+        {isMobile ? (
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {[...holdingIrrs]
+              .sort((a, b) => (b.irr ?? -Infinity) - (a.irr ?? -Infinity))
+              .map((r, i) => {
+                const irrColor = r.irr === null ? 'var(--text-secondary)' : r.irr >= 0 ? 'var(--up)' : 'var(--down)';
+                return (
+                  <div key={r.ticker} style={{ padding: '12px 16px', borderTop: i === 0 ? 'none' : '1px solid var(--bg-tertiary)', background: i % 2 === 0 ? 'transparent' : 'var(--bg-primary)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{r.ticker} · 최초매수 {r.first_date}</div>
+                      </div>
+                      <div style={{ fontSize: 17, fontWeight: 700, color: irrColor, flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
+                        {r.irr === null ? '-' : fmtPct(r.irr)}
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      <div>
+                        <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>투자 원금</div>
+                        <div style={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fmt(r.invested_krw)}</div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>현재 평가</div>
+                        <div style={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fmt(r.current_value_krw)}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        ) : (
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
             <tr style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>
@@ -1111,6 +1146,7 @@ export default function Analytics({ portfolio, isMobile = false }: { portfolio: 
               })}
           </tbody>
         </table>
+        )}
       </div>
     </div>
   );

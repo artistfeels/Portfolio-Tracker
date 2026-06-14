@@ -86,12 +86,12 @@ function fmtPrice(p: number | null, symbol: string) {
 }
 function fmtKrw(n: number) { return '₩' + Math.round(n).toLocaleString('ko-KR'); }
 
-function TvChart({ tvSymbol, label, theme, onClose }: { tvSymbol: string; label: string; theme: string; onClose: () => void }) {
-  const src = `https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(tvSymbol)}&interval=D&locale=kr&theme=${theme}&style=1&timezone=Asia%2FSeoul&withdateranges=1&hide_side_toolbar=0&allow_symbol_change=1`;
+function TvChart({ tvSymbol, label, theme, onClose, isMobile }: { tvSymbol: string; label: string; theme: string; onClose: () => void; isMobile?: boolean }) {
+  const src = `https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(tvSymbol)}&interval=D&locale=kr&theme=${theme}&style=1&timezone=Asia%2FSeoul&withdateranges=1&hide_side_toolbar=${isMobile ? 1 : 0}&allow_symbol_change=1`;
   return (
     <div style={{
       border: '1px solid var(--border-primary)', borderRadius: 12,
-      overflow: 'hidden', marginBottom: 20, height: 480,
+      overflow: 'hidden', marginBottom: 20, height: isMobile ? 360 : 480,
     }}>
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -331,6 +331,7 @@ export default function Market({ holdings, usdKrw, isMobile, theme = 'dark' }: P
           label={selectedTv.label}
           theme={theme}
           onClose={() => setSelectedTv(null)}
+          isMobile={isMobile}
         />
       )}
 

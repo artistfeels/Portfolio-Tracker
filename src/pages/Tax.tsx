@@ -200,6 +200,41 @@ export default function Tax({ transactions, holdings, isMobile }: Props) {
           <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
             해외 주식 매도 내역이 없습니다.
           </div>
+        ) : isMobile ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {rows.map(r => {
+              const isCur = r.year === thisYear;
+              const Cell = ({ label, value, color }: { label: string; value: React.ReactNode; color?: string }) => (
+                <div>
+                  <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>{label}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: color ?? 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{value}</div>
+                </div>
+              );
+              return (
+                <div key={r.year} style={{ background: 'var(--bg-card)', border: `1px solid ${isCur ? 'var(--accent)' : 'var(--border-primary)'}`, borderRadius: 10, padding: '12px 14px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: isCur ? 'var(--accent)' : 'var(--text-primary)' }}>
+                      {r.year}{isCur ? ' (진행 중)' : ''} <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--text-muted)' }}>· {r.trades}건</span>
+                    </span>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: r.tax_krw > 0 ? UP : 'var(--text-muted)' }}>
+                      {r.tax_krw > 0 ? fmtKrw(r.tax_krw) : '세액 없음'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px 8px' }}>
+                    <Cell label="총 매도익" value={'+' + fmtW(Math.round(r.gains_krw))} color={UP} />
+                    <Cell label="총 매도손" value={fmtW(Math.round(r.losses_krw))} color={DOWN} />
+                    <Cell label="순 손익" value={(r.net_krw >= 0 ? '+' : '') + fmtW(Math.round(r.net_krw))} color={r.net_krw >= 0 ? UP : DOWN} />
+                    <Cell label="기본공제" value={r.deduction_krw > 0 ? '-' + fmtW(Math.round(r.deduction_krw)) : '-'} />
+                    <Cell label="과세표준" value={r.taxable_krw > 0 ? fmtW(Math.round(r.taxable_krw)) : '-'} />
+                    <Cell label="예상 세액(22%)" value={r.tax_krw > 0 ? fmtKrw(r.tax_krw) : '없음'} color={r.tax_krw > 0 ? UP : 'var(--text-muted)'} />
+                  </div>
+                </div>
+              );
+            })}
+            <div style={{ marginTop: 4, fontSize: 11, color: 'var(--text-muted)' }}>
+              * 해외 주식 양도소득만 집계. 국내 주식(ETF 포함)은 별도 과세 체계 적용. 실제 납부세액은 전문 세무사 확인 필요.
+            </div>
+          </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -257,6 +292,44 @@ export default function Tax({ transactions, holdings, isMobile }: Props) {
             }}>
               아래 종목을 매도하면 {thisYear}년 양도차익과 손익통산 가능 (이월 불가, 해당 연도 내 결제일 기준)
             </div>
+            {isMobile ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {harvestCandidates.map(h => {
+                  const loss = h.profit_krw;
+                  const currentYearNet = (currentYearRow?.net_krw ?? 0);
+                  const afterOffset = Math.max(0, currentYearNet + loss - DEDUCTION);
+                  const currentTax = currentYearRow?.tax_krw ?? 0;
+                  const newTax = Math.round(afterOffset * TAX_RATE);
+                  const saving = currentTax - newTax;
+                  return (
+                    <div key={h.ticker} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 10, padding: '12px 14px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 10 }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.name}</div>
+                          <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{h.ticker}</div>
+                        </div>
+                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                          <div style={{ fontSize: 15, fontWeight: 700, color: DOWN, fontVariantNumeric: 'tabular-nums' }}>{fmtKrw(Math.round(loss))}</div>
+                          <div style={{ fontSize: 11, color: DOWN }}>{h.profit_pct.toFixed(2)}%</div>
+                        </div>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                        <div>
+                          <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>평가금액</div>
+                          <div style={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fmtKrw(h.market_value_krw)}</div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>절감 예상 세액</div>
+                          <div style={{ fontSize: 13, fontWeight: saving > 0 ? 700 : 400, color: saving > 0 ? DOWN : 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+                            {saving > 0 ? '-' + fmtKrw(saving) : '-'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
@@ -300,6 +373,7 @@ export default function Tax({ transactions, holdings, isMobile }: Props) {
                 </tbody>
               </table>
             </div>
+            )}
             <div style={{ marginTop: 12, fontSize: 11, color: 'var(--text-muted)' }}>
               * 손실수확 후 30일 내 동일 종목 재매수 시 wash-sale rule 미적용 (한국 세법). 단, 매매비용 고려 필요.
             </div>
