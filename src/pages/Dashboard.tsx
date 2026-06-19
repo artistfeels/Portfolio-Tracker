@@ -33,10 +33,19 @@ function displayLabel(ticker: string, name: string): string {
   return /^\d{6}$/.test(ticker) ? name : ticker;
 }
 
-// ── Binary-split treemap layout ──────────────────────
+// ── 공통 타입 ─────────────────────────────────────────
 type TItem = { label: string; value: number; color: string };
 type TRect = TItem & { x: number; y: number; w: number; h: number };
 
+// ── 일간 등락률 → 히트맵 색상 (상승=빨강/하락=파랑, 한국 관습) ─
+function heatColor(pct: number | null): string {
+  if (pct === null) return 'rgba(120,120,120,0.45)';
+  const c = Math.max(-6, Math.min(6, pct));
+  if (c >= 0) return `rgba(207,34,46,${(0.25 + (c / 6) * 0.75).toFixed(2)})`;
+  return `rgba(31,111,235,${(0.25 + (Math.abs(c) / 6) * 0.75).toFixed(2)})`;
+}
+
+// ── Binary-split treemap layout ──────────────────────
 function buildTreemap(items: TItem[], x: number, y: number, w: number, h: number): TRect[] {
   if (items.length === 0) return [];
   if (items.length === 1) return [{ ...items[0], x, y, w, h }];
@@ -58,84 +67,204 @@ function buildTreemap(items: TItem[], x: number, y: number, w: number, h: number
   }
 }
 
-// ── SVG Donut chart ──────────────────────────────────
-function DonutChart({ items }: { items: TItem[] }) {
+// ── ① 개선된 도넛 — 범례 + 호버 상세 ───────────────────
+function DonutWithLegend({ items, totalValue }: { items: TItem[]; totalValue: number }) {
+  const [hov, setHov] = useState<number | null>(null);
   const total = items.reduce((s, i) => s + i.value, 0);
   if (total === 0) return null;
-  const cx = 110, cy = 110, R = 100, r = 56;
+  const cx = 72, cy = 72, R = 65, r = 38;
   let angle = -Math.PI / 2;
-  const c = (a: number, rr: number) => ({ x: cx + rr * Math.cos(a), y: cy + rr * Math.sin(a) });
-  const segments = items.map(item => {
+  const cp = (a: number, rr: number) => ({ x: cx + rr * Math.cos(a), y: cy + rr * Math.sin(a) });
+  const segments = items.map((item, idx) => {
     const pct = item.value / total;
     const sweep = pct * 2 * Math.PI;
     const sa = angle, ea = angle + sweep;
     angle = ea;
-    const mid = (sa + ea) / 2;
     const lg = sweep > Math.PI ? 1 : 0;
-    const p1 = c(sa, R), p2 = c(ea, R), p3 = c(ea, r), p4 = c(sa, r);
-    const path = `M${p1.x} ${p1.y} A${R} ${R} 0 ${lg} 1 ${p2.x} ${p2.y} L${p3.x} ${p3.y} A${r} ${r} 0 ${lg} 0 ${p4.x} ${p4.y}Z`;
-    const tr = (R + r) / 2;
-    return { ...item, path, tx: c(mid, tr).x, ty: c(mid, tr).y, pct };
+    const p1 = cp(sa, R), p2 = cp(ea, R), p3 = cp(ea, r), p4 = cp(sa, r);
+    return { ...item, idx, pct, path: `M${p1.x} ${p1.y} A${R} ${R} 0 ${lg} 1 ${p2.x} ${p2.y} L${p3.x} ${p3.y} A${r} ${r} 0 ${lg} 0 ${p4.x} ${p4.y}Z` };
   });
+  const active = hov !== null ? segments[hov] : null;
   return (
-    <svg width="100%" viewBox="0 0 220 220" style={{ display: 'block' }}>
-      {segments.map((seg, i) => (
-        <g key={i}>
-          <path d={seg.path} fill={seg.color} />
-          {seg.pct > 0.05 && (
-            <text x={seg.tx} y={seg.ty - (seg.pct > 0.09 ? 6 : 0)}
-              textAnchor="middle" dominantBaseline="middle"
-              fill="white" fontSize={seg.pct > 0.13 ? 10 : 8} fontWeight={700} style={{ pointerEvents: 'none' }}>
-              {seg.label.length > 8 ? seg.label.slice(0, 7) + '…' : seg.label}
-            </text>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
+      <div style={{ flexShrink: 0 }}>
+        <svg width="144" height="144" viewBox="0 0 144 144" style={{ display: 'block' }}>
+          {segments.map(seg => (
+            <path key={seg.idx} d={seg.path} fill={seg.color}
+              opacity={hov !== null && hov !== seg.idx ? 0.28 : 1}
+              style={{ cursor: 'pointer', transition: 'opacity 0.18s' }}
+              onMouseEnter={() => setHov(seg.idx)} onMouseLeave={() => setHov(null)} />
+          ))}
+          <circle cx={cx} cy={cy} r={r - 1} fill="var(--bg-card)" />
+          {active ? (
+            <>
+              <text x={cx} y={cy - 7} textAnchor="middle" dominantBaseline="middle" fill={active.color} fontSize={9} fontWeight={700}>
+                {active.label.length > 7 ? active.label.slice(0, 6) + '…' : active.label}
+              </text>
+              <text x={cx} y={cy + 8} textAnchor="middle" dominantBaseline="middle" fill="var(--text-primary)" fontSize={15} fontWeight={800}>
+                {(active.pct * 100).toFixed(1)}%
+              </text>
+            </>
+          ) : (
+            <>
+              <text x={cx} y={cy - 7} textAnchor="middle" dominantBaseline="middle" fill="var(--text-secondary)" fontSize={8}>총 평가</text>
+              <text x={cx} y={cy + 9} textAnchor="middle" dominantBaseline="middle" fill="var(--text-primary)" fontSize={10} fontWeight={700}>
+                {(totalValue / 10000).toFixed(0)}만원
+              </text>
+            </>
           )}
-          {seg.pct > 0.09 && (
-            <text x={seg.tx} y={seg.ty + 8}
-              textAnchor="middle" dominantBaseline="middle"
-              fill="rgba(255,255,255,0.85)" fontSize={8} style={{ pointerEvents: 'none' }}>
-              {(seg.pct * 100).toFixed(1)}%
-            </text>
-          )}
-        </g>
-      ))}
-      <circle cx={cx} cy={cy} r={r - 1} fill="var(--bg-card)" />
-      <text x={cx} y={cy - 8} textAnchor="middle" dominantBaseline="middle" fill="var(--text-primary)" fontSize={22} fontWeight={700}>{items.length}</text>
-      <text x={cx} y={cy + 13} textAnchor="middle" dominantBaseline="middle" fill="var(--text-secondary)" fontSize={11}>종목</text>
-    </svg>
+        </svg>
+      </div>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
+        {segments.map(seg => (
+          <div key={seg.idx}
+            style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', opacity: hov !== null && hov !== seg.idx ? 0.28 : 1, transition: 'opacity 0.18s' }}
+            onMouseEnter={() => setHov(seg.idx)} onMouseLeave={() => setHov(null)}>
+            <div style={{ width: 9, height: 9, borderRadius: 3, background: seg.color, flexShrink: 0 }} />
+            <div style={{ flex: 1, fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-primary)' }}>{seg.label}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{(seg.pct * 100).toFixed(1)}%</div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
-// ── SVG Treemap ──────────────────────────────────────
-function Treemap({ items }: { items: TItem[] }) {
+// ── ② 히트맵 트리맵 — 등락률 색상 + 호버 툴팁 ──────────
+type THeatItem = TItem & { dailyChangePct: number | null };
+
+function HeatTreemap({ items }: { items: THeatItem[] }) {
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; item: THeatItem; pct: number } | null>(null);
   const sorted = [...items].sort((a, b) => b.value - a.value);
   const total = sorted.reduce((s, i) => s + i.value, 0);
   if (total === 0) return null;
-  const W = 360, H = 230, G = 3;
-  const rects = buildTreemap(sorted, 0, 0, W, H);
+  const W = 360, H = 210, G = 3;
+  const rects = buildTreemap(sorted.map(i => ({ ...i, color: heatColor(i.dailyChangePct) })), 0, 0, W, H);
   return (
-    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
-      {rects.map((rect, i) => {
-        const pct = rect.value / total;
-        const rx = rect.x + G / 2, ry = rect.y + G / 2;
-        const rw = rect.w - G, rh = rect.h - G;
-        const showLabel = rw > 36 && rh > 22;
-        const showPct = rw > 50 && rh > 38;
-        const fs = Math.min(13, Math.max(8, Math.min(rw * 0.18, rh * 0.3)));
+    <div>
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}
+        onMouseLeave={() => setTooltip(null)}>
+        {rects.map((rect, i) => {
+          const item = sorted[i] as THeatItem;
+          const pct = rect.value / total;
+          const rx = rect.x + G / 2, ry = rect.y + G / 2;
+          const rw = rect.w - G, rh = rect.h - G;
+          const showLabel = rw > 34 && rh > 20;
+          const showDpct = rw > 50 && rh > 36;
+          const fs = Math.min(12, Math.max(8, Math.min(rw * 0.17, rh * 0.28)));
+          const dp = item.dailyChangePct;
+          return (
+            <g key={i} style={{ cursor: 'pointer' }}
+              onMouseEnter={e => setTooltip({ x: e.clientX, y: e.clientY, item, pct })}
+              onMouseMove={e => setTooltip(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : null)}>
+              <rect x={rx} y={ry} width={rw} height={rh} fill={rect.color} rx={8} />
+              {showLabel && (
+                <text x={rx + rw / 2} y={ry + rh / 2 + (showDpct ? -6 : 0)} textAnchor="middle" dominantBaseline="middle"
+                  fill="rgba(255,255,255,0.95)" fontSize={fs} fontWeight={700} style={{ pointerEvents: 'none' }}>
+                  {rect.label.length > 10 ? rect.label.slice(0, 9) + '…' : rect.label}
+                </text>
+              )}
+              {showDpct && dp !== null && (
+                <text x={rx + rw / 2} y={ry + rh / 2 + 9} textAnchor="middle" dominantBaseline="middle"
+                  fill="rgba(255,255,255,0.88)" fontSize={9} style={{ pointerEvents: 'none' }}>
+                  {dp >= 0 ? '+' : ''}{dp.toFixed(2)}%
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, justifyContent: 'center' }}>
+        <span style={{ fontSize: 9, color: 'var(--text-muted)' }}>-6%</span>
+        <div style={{ width: 100, height: 5, borderRadius: 3, background: 'linear-gradient(to right, rgba(31,111,235,1), rgba(100,100,100,0.3), rgba(207,34,46,1))' }} />
+        <span style={{ fontSize: 9, color: 'var(--text-muted)' }}>+6%</span>
+      </div>
+      {tooltip && (
+        <div style={{ position: 'fixed', left: tooltip.x + 12, top: tooltip.y - 50,
+          background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8,
+          padding: '8px 12px', fontSize: 12, lineHeight: 1.6,
+          boxShadow: '0 4px 24px rgba(0,0,0,0.35)', zIndex: 9999, pointerEvents: 'none' }}>
+          <div style={{ fontWeight: 700, marginBottom: 2 }}>{tooltip.item.label}</div>
+          <div style={{ color: 'var(--text-secondary)' }}>{(tooltip.item.value / 10000).toFixed(0)}만원 · {(tooltip.pct * 100).toFixed(1)}%</div>
+          {tooltip.item.dailyChangePct !== null && (
+            <div style={{ fontWeight: 600, color: tooltip.item.dailyChangePct >= 0 ? 'var(--up)' : 'var(--down)' }}>
+              일간 {tooltip.item.dailyChangePct >= 0 ? '+' : ''}{tooltip.item.dailyChangePct.toFixed(2)}%
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── ③ 버블 차트 — 누적수익률 × 일간등락 · 크기=비중 ──────
+type TBubbleItem = { label: string; ticker: string; profitPct: number; dailyPct: number | null; value: number; color: string };
+
+function BubbleChart({ items }: { items: TBubbleItem[] }) {
+  const [hov, setHov] = useState<string | null>(null);
+  const visible = items.filter(i => i.value > 0);
+  if (visible.length < 2) return null;
+  const W = 420, H = 210;
+  const PAD = { l: 36, r: 12, t: 14, b: 30 };
+  const cW = W - PAD.l - PAD.r, cH = H - PAD.t - PAD.b;
+  const ps = visible.map(i => i.profitPct);
+  const ds = visible.filter(i => i.dailyPct !== null).map(i => i.dailyPct as number);
+  const rXMin = Math.min(...ps), rXMax = Math.max(...ps);
+  const rYMin = ds.length ? Math.min(...ds) : -2;
+  const rYMax = ds.length ? Math.max(...ds) : 2;
+  const expand = (v: number, s: number) => Math.abs(v) * s + 3;
+  const xMin = rXMin - expand(rXMin, 0.25), xMax = rXMax + expand(rXMax, 0.25);
+  const yMin = rYMin - expand(rYMin, 0.35), yMax = rYMax + expand(rYMax, 0.35);
+  const xS = (v: number) => PAD.l + ((v - xMin) / (xMax - xMin)) * cW;
+  const yS = (v: number) => PAD.t + (1 - (v - yMin) / (yMax - yMin)) * cH;
+  const rS = (v: number) => 7 + Math.sqrt(v / Math.max(...visible.map(i => i.value))) * 24;
+  const x0 = xS(0), y0 = yS(0);
+  return (
+    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block', overflow: 'visible' }}
+      onMouseLeave={() => setHov(null)}>
+      <rect x={PAD.l} y={PAD.t} width={Math.max(0, x0 - PAD.l)} height={Math.max(0, y0 - PAD.t)} fill="rgba(31,111,235,0.05)" />
+      <rect x={x0} y={PAD.t} width={Math.max(0, W - PAD.r - x0)} height={Math.max(0, y0 - PAD.t)} fill="rgba(207,34,46,0.06)" />
+      <rect x={PAD.l} y={y0} width={Math.max(0, x0 - PAD.l)} height={Math.max(0, H - PAD.b - y0)} fill="rgba(31,111,235,0.09)" />
+      <rect x={x0} y={y0} width={Math.max(0, W - PAD.r - x0)} height={Math.max(0, H - PAD.b - y0)} fill="rgba(207,34,46,0.03)" />
+      <line x1={x0} y1={PAD.t} x2={x0} y2={H - PAD.b} stroke="var(--border-primary)" strokeWidth={1} />
+      <line x1={PAD.l} y1={y0} x2={W - PAD.r} y2={y0} stroke="var(--border-primary)" strokeWidth={1} />
+      <text x={PAD.l + 4} y={PAD.t + 9} fill="rgba(31,111,235,0.45)" fontSize={7.5}>손실+하락</text>
+      <text x={W - PAD.r - 4} y={PAD.t + 9} textAnchor="end" fill="rgba(207,34,46,0.5)" fontSize={7.5}>수익+상승</text>
+      <text x={PAD.l + 4} y={H - PAD.b - 4} fill="rgba(31,111,235,0.4)" fontSize={7.5}>손실↔반등중</text>
+      <text x={W - PAD.r - 4} y={H - PAD.b - 4} textAnchor="end" fill="rgba(120,120,120,0.5)" fontSize={7.5}>수익+오늘조정</text>
+      {[rXMin, 0, rXMax].map(v => (
+        <text key={v} x={xS(v)} y={H - PAD.b + 11} textAnchor="middle" fill="var(--text-secondary)" fontSize={8}>
+          {v >= 0 ? '+' : ''}{v.toFixed(0)}%
+        </text>
+      ))}
+      {[rYMin, 0, rYMax].filter((v, idx, a) => a.indexOf(v) === idx).map(v => (
+        <text key={v} x={PAD.l - 3} y={yS(v)} textAnchor="end" dominantBaseline="middle" fill="var(--text-secondary)" fontSize={8}>
+          {v >= 0 ? '+' : ''}{v.toFixed(1)}
+        </text>
+      ))}
+      <text x={W / 2} y={H - 2} textAnchor="middle" fill="var(--text-muted)" fontSize={8}>← 누적 수익률 →</text>
+      <text x={8} y={H / 2} textAnchor="middle" fill="var(--text-muted)" fontSize={8} transform={`rotate(-90,8,${H / 2})`}>일간↑</text>
+      {[...visible].sort((a, b) => b.value - a.value).map(item => {
+        const bx = xS(item.profitPct);
+        const by = item.dailyPct !== null ? yS(item.dailyPct) : y0;
+        const r = rS(item.value);
+        const isHov = hov === item.ticker;
         return (
-          <g key={i}>
-            <rect x={rx} y={ry} width={rw} height={rh} fill={rect.color} rx={8} />
-            {showLabel && (
-              <text x={rx + rw / 2} y={ry + rh / 2 + (showPct ? -7 : 0)}
-                textAnchor="middle" dominantBaseline="middle"
-                fill="white" fontSize={fs} fontWeight={700} style={{ pointerEvents: 'none' }}>
-                {rect.label.length > 10 ? rect.label.slice(0, 9) + '…' : rect.label}
+          <g key={item.ticker} style={{ cursor: 'pointer' }} onMouseEnter={() => setHov(item.ticker)}>
+            <circle cx={bx} cy={by} r={r} fill={item.color}
+              opacity={hov && !isHov ? 0.18 : 0.75}
+              stroke={isHov ? 'white' : 'rgba(255,255,255,0.15)'}
+              strokeWidth={isHov ? 2 : 1}
+              style={{ transition: 'opacity 0.18s' }} />
+            {(r > 16 || isHov) && (
+              <text x={bx} y={by} textAnchor="middle" dominantBaseline="middle"
+                fill="white" fontSize={Math.min(10, r * 0.52)} fontWeight={700} style={{ pointerEvents: 'none' }}>
+                {item.label.length > 5 ? item.label.slice(0, 4) + '…' : item.label}
               </text>
             )}
-            {showPct && (
-              <text x={rx + rw / 2} y={ry + rh / 2 + 9}
-                textAnchor="middle" dominantBaseline="middle"
-                fill="rgba(255,255,255,0.82)" fontSize={9} style={{ pointerEvents: 'none' }}>
-                {(pct * 100).toFixed(1)}%
+            {isHov && (
+              <text x={bx} y={by + r + 11} textAnchor="middle" fill="var(--text-primary)" fontSize={9} fontWeight={600} style={{ pointerEvents: 'none' }}>
+                {item.profitPct >= 0 ? '+' : ''}{item.profitPct.toFixed(1)}%{item.dailyPct !== null ? ` / 일간 ${item.dailyPct >= 0 ? '+' : ''}${item.dailyPct.toFixed(2)}%` : ''}
               </text>
             )}
           </g>
@@ -527,31 +656,51 @@ export default function Dashboard({ portfolio, theme = 'dark', isMobile = false 
 
       {/* ── 인포그래픽 섹션 ──────────────────────────── */}
       {showInfoViz && (
-        <div style={{ marginBottom: 16, animation: 'fadeSlideIn 0.3s ease' }}>
+        <div style={{ marginBottom: 16, animation: 'fadeSlideIn 0.3s ease', display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 14 }}>
-            {/* 평가금액 원형 차트 */}
+            {/* ① 도넛 + 범례 */}
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 14, padding: '16px 20px' }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 12 }}>평가금액 구성</div>
-              <DonutChart
+              <DonutWithLegend
                 items={sortedHoldings.map((h, i) => ({
                   label: displayLabel(h.ticker, h.name),
                   value: h.market_value_krw,
                   color: PALETTE[i % PALETTE.length],
                 }))}
+                totalValue={summary.totalValue}
               />
             </div>
-            {/* 보유 비중 트리맵 */}
+            {/* ② 히트맵 트리맵 */}
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 14, padding: '16px 20px' }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 12 }}>보유 비중 맵</div>
-              <Treemap
-                items={sortedHoldings.map((h, i) => ({
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>일간 히트맵</div>
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 10 }}>크기=비중 · 색상=일간등락 · 마우스 올리면 상세</div>
+              <HeatTreemap
+                items={sortedHoldings.map(h => ({
                   label: displayLabel(h.ticker, h.name),
                   value: h.market_value_krw,
-                  color: PALETTE[i % PALETTE.length],
+                  color: heatColor(h.daily_change_pct),
+                  dailyChangePct: h.daily_change_pct,
                 }))}
               />
             </div>
           </div>
+          {/* ③ 버블 차트 */}
+          {sortedHoldings.length >= 2 && (
+            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 14, padding: '16px 20px' }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>수익률 산점도</div>
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 10 }}>버블 크기=보유비중 · X=누적수익률 · Y=일간등락 · 마우스 올리면 수치</div>
+              <BubbleChart
+                items={sortedHoldings.map((h, i) => ({
+                  label: displayLabel(h.ticker, h.name),
+                  ticker: h.ticker,
+                  profitPct: h.profit_pct,
+                  dailyPct: h.daily_change_pct,
+                  value: h.market_value_krw,
+                  color: PALETTE[i % PALETTE.length],
+                }))}
+              />
+            </div>
+          )}
         </div>
       )}
 
