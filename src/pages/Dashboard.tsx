@@ -479,24 +479,24 @@ export default function Dashboard({ portfolio, theme = 'dark', isMobile = false 
 
         {/* 오늘의 움직임 */}
         {showMovers && (
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: isMobile ? 6 : 10 }}>
             {([
               { title: '상승 상위', list: gainers, up: true },
               { title: '하락 상위', list: losers, up: false },
             ] as const).map(({ title, list, up }) => (
-              <div key={title} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 14, padding: isMobile ? '12px 14px' : '14px 18px' }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: up ? 'var(--up)' : 'var(--down)', marginBottom: isMobile ? 8 : 12 }}>{title}</div>
+              <div key={title} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: isMobile ? 10 : 14, padding: isMobile ? '8px 10px' : '14px 18px' }}>
+                <div style={{ fontSize: isMobile ? 11 : 13, fontWeight: 700, color: up ? 'var(--up)' : 'var(--down)', marginBottom: isMobile ? 5 : 12 }}>{title}</div>
                 {list.length === 0
-                  ? <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>해당 없음</div>
+                  ? <div style={{ fontSize: isMobile ? 11 : 13, color: 'var(--text-muted)' }}>해당 없음</div>
                   : list.map(h => (
-                    <div key={h.ticker} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, minWidth: 0 }}>
+                    <div key={h.ticker} style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 4 : 10, marginBottom: isMobile ? 5 : 10, minWidth: 0 }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.name}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{h.ticker}</div>
+                        <div style={{ fontSize: isMobile ? 11 : 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.name}</div>
+                        {!isMobile && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{h.ticker}</div>}
                       </div>
                       <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: up ? 'var(--up)' : 'var(--down)' }}>{fmtSign(h.daily_change_pct ?? 0, 2)}</div>
-                        <div style={{ fontSize: 11, color: up ? 'var(--up)' : 'var(--down)', opacity: 0.8 }}>
+                        <div style={{ fontSize: isMobile ? 12 : 15, fontWeight: 700, color: up ? 'var(--up)' : 'var(--down)' }}>{fmtSign(h.daily_change_pct ?? 0, 2)}</div>
+                        <div style={{ fontSize: isMobile ? 10 : 11, color: up ? 'var(--up)' : 'var(--down)', opacity: 0.8 }}>
                           {up ? '+' : ''}{Math.round(h.dailyPnl / 10000)}만원
                         </div>
                       </div>
