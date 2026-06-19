@@ -6,7 +6,6 @@ import Dashboard from './pages/Dashboard';
 import Transactions from './pages/Transactions';
 import Analytics from './pages/Analytics';
 import Watchlist from './pages/Watchlist';
-import Market from './pages/Market';
 import Tax from './pages/Tax';
 import { usePortfolio } from './hooks/usePortfolio';
 import { useIsMobile } from './hooks/useIsMobile';
@@ -145,8 +144,7 @@ function AuthenticatedApp({ theme, onToggleTheme }: { theme: Theme; onToggleThem
         <div style={{ display: page === 'dashboard'    ? 'block' : 'none' }}><Dashboard portfolio={portfolio} theme={theme} isMobile={isMobile} /></div>
         <div style={{ display: page === 'transactions' ? 'block' : 'none' }}><Transactions isMobile={isMobile} /></div>
         <div style={{ display: page === 'analytics'   ? 'block' : 'none' }}><Analytics portfolio={portfolio} isMobile={isMobile} /></div>
-        <div style={{ display: page === 'market'      ? 'block' : 'none' }}><Market holdings={portfolio.holdings} usdKrw={portfolio.usdKrw} isMobile={isMobile} theme={theme} /></div>
-        <div style={{ display: page === 'watchlist'   ? 'block' : 'none' }}><Watchlist usdKrw={portfolio.usdKrw} isMobile={isMobile} theme={theme} /></div>
+<div style={{ display: page === 'watchlist'   ? 'block' : 'none' }}><Watchlist usdKrw={portfolio.usdKrw} isMobile={isMobile} theme={theme} /></div>
         <div style={{ display: page === 'tax'         ? 'block' : 'none' }}><Tax transactions={portfolio.transactions} holdings={portfolio.holdings} isMobile={isMobile} /></div>
       </main>
     </div>

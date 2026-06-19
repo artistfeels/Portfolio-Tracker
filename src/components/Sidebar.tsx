@@ -14,8 +14,7 @@ const items: { page: Page; icon: string; label: string }[] = [
   { page: 'dashboard',    icon: '📊', label: '대시보드' },
   { page: 'transactions', icon: '📄', label: '거래내역' },
   { page: 'analytics',    icon: '📈', label: '애널리틱스' },
-  { page: 'market',       icon: '🌐', label: '시장'     },
-  { page: 'watchlist',    icon: '⭐', label: '관심종목' },
+{ page: 'watchlist',    icon: '⭐', label: '관심종목' },
   { page: 'tax',          icon: '🧾', label: '세금'     },
 ];
 
