@@ -457,18 +457,18 @@ export default function Dashboard({ portfolio, theme = 'dark', isMobile = false 
 
         {/* 자산 구성 */}
         {assetGroups.length > 0 && (
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: '12px 16px' }}>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: isMobile ? '10px 12px' : '12px 16px' }}>
             <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 10 }}>자산 구성</div>
             {assetGroups.map(g => {
               const pct = assetTotal > 0 ? g.value / assetTotal * 100 : 0;
               return (
-                <div key={g.label} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
-                  <div style={{ width: 70, fontSize: 11, color: 'var(--text-secondary)', flexShrink: 0, textAlign: 'right' }}>{g.label}</div>
-                  <div style={{ flex: 1, height: 14, background: 'var(--bg-tertiary)', borderRadius: 3, overflow: 'hidden' }}>
+                <div key={g.label} style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 8, marginBottom: 7 }}>
+                  <div style={{ width: isMobile ? 52 : 70, fontSize: isMobile ? 10 : 11, color: 'var(--text-secondary)', flexShrink: 0, textAlign: 'right' }}>{g.label}</div>
+                  <div style={{ flex: 1, height: 14, background: 'var(--bg-tertiary)', borderRadius: 3, overflow: 'hidden', minWidth: 20 }}>
                     <div style={{ width: `${pct}%`, height: '100%', background: g.color, borderRadius: 3, transition: 'width 0.5s' }} />
                   </div>
-                  <div style={{ width: 38, fontSize: 11, color: g.color, textAlign: 'right', flexShrink: 0 }}>{pct.toFixed(1)}%</div>
-                  <div style={{ width: 100, fontSize: 11, color: 'var(--text-primary)', textAlign: 'right', flexShrink: 0, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                  <div style={{ width: 36, fontSize: isMobile ? 10 : 11, color: g.color, textAlign: 'right', flexShrink: 0 }}>{pct.toFixed(1)}%</div>
+                  <div style={{ width: isMobile ? 76 : 100, fontSize: isMobile ? 10 : 11, color: 'var(--text-primary)', textAlign: 'right', flexShrink: 0, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
                     {(g.value / 1_0000).toFixed(0)}만원
                   </div>
                 </div>
@@ -479,13 +479,13 @@ export default function Dashboard({ portfolio, theme = 'dark', isMobile = false 
 
         {/* 오늘의 움직임 */}
         {showMovers && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 10 }}>
             {([
               { title: '상승 상위', list: gainers, up: true },
               { title: '하락 상위', list: losers, up: false },
             ] as const).map(({ title, list, up }) => (
-              <div key={title} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 14, padding: '14px 18px' }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: up ? 'var(--up)' : 'var(--down)', marginBottom: 12 }}>{title}</div>
+              <div key={title} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 14, padding: isMobile ? '12px 14px' : '14px 18px' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: up ? 'var(--up)' : 'var(--down)', marginBottom: isMobile ? 8 : 12 }}>{title}</div>
                 {list.length === 0
                   ? <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>해당 없음</div>
                   : list.map(h => (

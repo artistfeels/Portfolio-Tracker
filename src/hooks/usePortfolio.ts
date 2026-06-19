@@ -38,8 +38,18 @@ export function usePortfolio() {
       const rawHoldings = calcHoldings(txs);
 
       // 2. Immediately show table — use localStorage cached prices if available, else avg as placeholder
+      //    현금도 localStorage에서 즉시 포함 (API 불필요, 굳이 기다릴 이유 없음)
       if (!silent) {
-        const placeholder: HoldingWithPrice[] = rawHoldings.map(h => {
+        const localCash = Number(localStorage.getItem('portfolio_cash_krw') ?? '0');
+        const cashPlaceholder: HoldingWithPrice = {
+          ticker: 'CASH', name: '현금 (KRW)', shares: localCash,
+          avg_price_krw: 1, total_principal_krw: localCash,
+          current_price_krw: 1, market_value_krw: localCash,
+          profit_krw: 0, profit_pct: 0,
+          sector: null, region: '한국', asset_group: '현금',
+          price_source: '-', daily_change_pct: null, prev_close_krw: 1,
+        };
+        const stockPlaceholders: HoldingWithPrice[] = rawHoldings.map(h => {
           const cached = getCachedPrice(h.ticker);
           const current = cached?.price_krw || h.avg_price_krw;
           const marketVal = Math.round(current * h.shares);
@@ -56,16 +66,22 @@ export function usePortfolio() {
             prev_close_krw: cached?.prev_close_krw ?? 0,
           };
         });
+        const placeholder = [...stockPlaceholders, cashPlaceholder];
         setHoldings(placeholder);
         setSummary(calcSummary(placeholder));
         setStatus('done'); // Table is visible NOW, prices refresh in background
       }
 
       // 3. Fetch rate + cash in parallel
+      //    환율도 localStorage 캐시 값으로 먼저 표시 (fresher 값은 아래서 덮어씀)
+      const storedRate = Number(localStorage.getItem('pt_usdkrw') ?? '0');
+      if (storedRate > 100) { setUsdKrw(storedRate); usdKrwRef.current = storedRate; }
+
       const [rate, cashResult] = await Promise.all([
         fetchUsdKrw(),
         supabase.from('cash_balance').select('amount_krw').eq('id', 1).maybeSingle(),
       ]);
+      localStorage.setItem('pt_usdkrw', String(rate));
       setUsdKrw(rate);
       usdKrwRef.current = rate;
 
@@ -100,8 +116,8 @@ export function usePortfolio() {
         prev_close_krw: 1,
       };
 
-      // 4. Progressively fetch prices — each row updates as its price arrives
-      for (const h of rawHoldings) {
+      // 4. Fetch all prices in parallel — each ticker updates the UI as soon as its price arrives
+      await Promise.all(rawHoldings.map(async h => {
         const p = await fetchPrice(h.ticker, rate);
         setHoldings(prev => {
           const updated = prev.map(holding => {
@@ -142,10 +158,7 @@ export function usePortfolio() {
           setSummary(calcSummary(updated));
           return updated;
         });
-        if (p.source !== 'cache') {
-          await new Promise(r => setTimeout(r, 200));
-        }
-      }
+      }));
 
       // 5. Final: sync cash, remove sold-off tickers, sort by market value (CASH always included)
       const activeTickers = new Set(rawHoldings.map(h => h.ticker));
